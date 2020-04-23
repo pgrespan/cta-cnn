@@ -1,3 +1,6 @@
+import warnings
+warnings.simplefilter('ignore')
+
 import multiprocessing
 import os
 
@@ -53,6 +56,10 @@ class DataGeneratorC(keras.utils.Sequence):
 
         # print("training idx: ", indexes)
         return x, y
+
+    def gamma_fraction(self):
+        frac = np.mean(self.indexes, axis = 0, dtype=np.float64)[2]
+        return frac
 
     def get_indexes(self):
         return self.indexes[0:self.__len__() * self.batch_size]

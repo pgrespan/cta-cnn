@@ -1,3 +1,6 @@
+import warnings
+warnings.simplefilter('ignore')
+
 import keras
 from keras import layers, models
 from keras import backend as K
@@ -10,6 +13,23 @@ from keras.regularizers import l2
 import densenetlst
 # import resnext
 
+class ResNet50:
+
+    def __init__(self, outcomes, channels, img_rows, img_cols):
+        self.channels = channels
+        self.img_rows = img_rows
+        self.img_cols = img_cols
+        self.outcomes = outcomes
+
+    def get_model(self):
+        input_shape = (self.img_rows, self.img_cols, self.channels)
+        input_img = Input(input_shape, name='input_img')
+        base = keras.applications.resnet50.ResNet50(include_top=False, weights=None, input_tensor=input_img, pooling='max')
+        x = base.layers[-1].output
+        x = Dense(self.outcomes, name='gammaness', activation='linear')(x)
+        model = Model(inputs=input_img, output=x, name="resnet50")
+
+        return model
 
 class RegressorV2:
 
@@ -1456,7 +1476,7 @@ class DenseNet:
         return model
 
 
-class BaseLine:
+class BaseLine: # AAA when you select VGG16N, you call THIS ONE!
 
     def __init__(self, outcomes, channels, img_rows, img_cols):
         self.outcomes = outcomes
@@ -1504,7 +1524,7 @@ class BaseLine:
         return self.model
 
 
-class VGG16:
+class VGG16N: # AAA you are not calling this one, when you select VGG16N, but BaseLine!!!
 
     def __init__(self, outcomes, channels, img_rows, img_cols):
         self.outcomes = outcomes
@@ -1584,11 +1604,48 @@ class VGG16:
         x = layers.Dense(self.outcomes, activation='linear')(x)
 
         # Create model.
-        self.model = models.Model(inputs, x, name='vgg16')
+        self.model = models.Model(inputs, x, name='vgg16N')
 
         return self.model
 
 
+class VGG16:
+
+    def __init__(self, outcomes, channels, img_rows, img_cols):
+        self.channels = channels
+        self.img_rows = img_rows
+        self.img_cols = img_cols
+        self.outcomes = outcomes
+    def get_model(self):
+        input_shape = (self.img_rows, self.img_cols, self.channels)
+        input_img = Input(input_shape, name='input_img')
+        base = keras.applications.vgg16.VGG16(include_top=False, weights=None, input_tensor=input_img, pooling='max')
+        x = base.layers[-1].output
+        x = Dense(self.outcomes, name='regression', activation='linear')(x)
+        model = Model(inputs=input_img, output=x, name="vgg16")
+
+        return model
+
+
+class VGG19:
+
+    def __init__(self, outcomes, channels, img_rows, img_cols):
+        self.channels = channels
+        self.img_rows = img_rows
+        self.img_cols = img_cols
+        self.outcomes = outcomes
+    def get_model(self):
+        input_shape = (self.img_rows, self.img_cols, self.channels)
+        input_img = Input(input_shape, name='input_img')
+        base = keras.applications.vgg19.VGG19(include_top=False, weights=None, input_tensor=input_img, pooling='max')
+        x = base.layers[-1].output
+        x = Dense(self.outcomes, name='regression', activation='linear')(x)
+        model = Model(inputs=input_img, output=x, name="vgg19")
+
+        return model
+
+
+'''
 class ResNeXt:
 
     def __init__(self, outcomes, channels, img_rows, img_cols, depth, cardinality, width, weight_decay):
@@ -1611,3 +1668,4 @@ class ResNeXt:
                                 activation='linear')
 
         return model
+'''

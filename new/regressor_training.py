@@ -1,3 +1,6 @@
+import warnings
+warnings.simplefilter('ignore')
+
 import argparse
 import datetime
 import multiprocessing as mp
@@ -9,10 +12,11 @@ from os import mkdir
 from os.path import isfile, join
 
 import keras
+import keras.backend as K
 #from adabound import AdaBound
 from generators import DataGeneratorR
 from keras import optimizers
-from keras.callbacks import LearningRateScheduler
+from keras.callbacks import LearningRateScheduler, TensorBoard
 from keras.callbacks import ModelCheckpoint, EarlyStopping
 from losseshistory import LossHistoryR
 from regressor_selector import regressor_selector
@@ -21,10 +25,22 @@ from regressor_tester import tester
 from regressor_training_plots import train_plots
 
 from utils import get_all_files
+import tensorflow as tf
 
 
-def regressor_training_main(folders, val_folders, model_name, time, epochs, batch_size, opt, lropf, sd, es,
-                            feature, workers, test_dirs):
+def regressor_training_main(folders, val_folders, model_name, time, epochs, batch_size, opt, learning_rate, lropf, sd, es,
+                            feature, workers, test_dirs, intensity_cut, tb, gpu_fraction):
+    ###################################
+    # TensorFlow wizardry for GPU dynamic memory allocation
+    if gpu_fraction != 0 and gpu_fraction <= 1:
+        config = tf.ConfigProto()
+        # Don't pre-allocate memory; allocate as-needed
+        config.gpu_options.allow_growth = True
+        # Only allow a fraction of the GPU memory to be allocated
+        config.gpu_options.per_process_gpu_memory_fraction = gpu_fraction
+        # Create a session with the above options specified.
+        K.tensorflow_backend.set_session(tf.Session(config=config))
+    ###################################
 
     # remove semaphore warnings
     os.environ["PYTHONWARNINGS"] = "ignore:semaphore_tracker:UserWarning"
@@ -51,7 +67,7 @@ def regressor_training_main(folders, val_folders, model_name, time, epochs, batc
     nesterov = True
 
     # adam
-    a_lr = 0.001
+    a_lr = learning_rate
     a_beta_1 = 0.9
     a_beta_2 = 0.999
     a_epsilon = None
@@ -79,7 +95,7 @@ def regressor_training_main(folders, val_folders, model_name, time, epochs, batc
     mlr_lrop = a_lr / 100  # min lr
 
     # cuts
-    intensity_cut = 50
+    # intensity_cut = 50
     leakage2_intensity_cut = 0.2
 
     training_files = get_all_files(folders)
@@ -230,10 +246,10 @@ def regressor_training_main(folders, val_folders, model_name, time, epochs, batc
         adam = optimizers.Adam(lr=a_lr, beta_1=a_beta_1, beta_2=a_beta_2, epsilon=a_epsilon, decay=a_decay,
                                amsgrad=amsgrad)
         optimizer = adam
-    elif opt == 'adabound':
-        adabound = AdaBound(lr=ab_lr, final_lr=ab_final_lr, gamma=ab_gamma, weight_decay=ab_weight_decay,
-                            amsbound=False)
-        optimizer = adabound
+#    elif opt == 'adabound':
+#        adabound = AdaBound(lr=ab_lr, final_lr=ab_final_lr, gamma=ab_gamma, weight_decay=ab_weight_decay,
+#                            amsbound=False)
+#        optimizer = adabound
     elif opt == 'rmsprop':
         rmsprop = optimizers.RMSprop(lr=r_lr, rho=r_rho, epsilon=r_epsilon, decay=r_decay)
         optimizer = rmsprop
@@ -263,6 +279,10 @@ def regressor_training_main(folders, val_folders, model_name, time, epochs, batc
         # early stopping
         early_stopping = EarlyStopping(monitor='val_loss', min_delta=md_es, patience=p_es, verbose=1, mode='max')
         callbacks.append(early_stopping)
+
+    if tb:
+        tensorboard = TensorBoard(log_dir=root_dir)
+        callbacks.append(tensorboard)
 
     model.compile(optimizer=optimizer, loss=loss)
 
@@ -339,31 +359,39 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
-        '--dirs', type=str, default='', nargs='+', help='Folder that contain .h5 files train data.', required=True)
+        '-d', '--dirs', type=str, default='', nargs='+', help='Folder that contain .h5 files train data.', required=True)
     parser.add_argument(
-        '--val_dirs', type=str, default='', nargs='+', help='Folder that contain .h5 files valid data.', required=True)
-    parser.add_argument(
-        '--model', type=str, default='', help='Model type.', required=True)
-    parser.add_argument(
-        '--time', type=bool, default=True, help='Specify whether feeding the network with arrival time.', required=False)
-    parser.add_argument(
-        '--epochs', type=int, default=10, help='Number of epochs.', required=True)
-    parser.add_argument(
-        '--batch_size', type=int, default=64, help='Batch size.', required=True)
-    parser.add_argument(
-        '--opt', type=str, default='adam', help='Specify the optimizer.', required=False)
-    parser.add_argument(
-        '--lrop', type=bool, default=False, help='Specify whether use reduce lr on plateau.', required=False)
-    parser.add_argument(
-        '--sd', type=bool, default=False, help='Step decay.', required=False)
-    parser.add_argument(
-        '--es', type=bool, default=False, help='Specify whether use early stopping.', required=False)
-    parser.add_argument(
-        '--feature', type=str, default='energy', help='Feature to train/predict.', required=True)
-    parser.add_argument(
-        '--workers', type=int, default='', help='Number of workers.', required=True)
+        '-v', '--val_dirs', type=str, default='', nargs='+', help='Folder that contain .h5 files valid data.', required=False)
     parser.add_argument(
         '--test_dirs', type=str, default='', nargs='+', help='Folder that contain .h5 files test data.', required=False)
+    parser.add_argument(
+        '-m', '--model', type=str, default='', help='Model type.', required=True)
+    parser.add_argument(
+        '-e', '--epochs', type=int, default=10, help='Number of epochs.', required=True)
+    parser.add_argument(
+        '-bs', '--batch_size', type=int, default=64, help='Batch size.', required=True)
+    parser.add_argument(
+        '-w', '--workers', type=int, default='', help='Specify number of workers.', required=True)
+    parser.add_argument(
+        '-opt', '--optimizer', type=str, default='adam', help='Specify the optimizer.', required=False)
+    parser.add_argument(
+        '-t', '--time', help='Feed the network with arrival time.', action="store_true")
+    parser.add_argument(
+        '-i', '--intensity_cut', type=float, default=50, help='Specify event intensity threshold (default 50 phe)', required=False)
+    parser.add_argument(
+        '-lr', '--learning_rate', type=float, default=1e-04, help='Set Learning Rate (default 1e-04)', required=False)
+    parser.add_argument(
+        '--lrop', help='Reduce learning rate on plateau.', action="store_true")
+    parser.add_argument(
+        '--sd', help='Use step decay.', action="store_true")
+    parser.add_argument(
+        '--es', help='Use early stopping.', action="store_true")
+    parser.add_argument(
+        '--tb', help='Use TensorBoard.', action="store_true")
+    parser.add_argument(
+        '--gpu_fraction', type=float, default=0, help='Set limit to fraction of GPU memory usage. IMPORTANT: between 0 and 1.', required=False)
+    parser.add_argument(
+        '-f', '--feature', type=str, default='energy', help='Feature to train/predict.', required=True)
 
     FLAGS, unparsed = parser.parse_known_args()
 
@@ -372,15 +400,20 @@ if __name__ == "__main__":
     val_folders = FLAGS.val_dirs
     model_name = FLAGS.model
     time = FLAGS.time
+    intens=FLAGS.intensity_cut
     epochs = FLAGS.epochs
     batch_size = FLAGS.batch_size
-    opt = FLAGS.opt
+    opt = FLAGS.optimizer
     lropf = FLAGS.lrop
     sd = FLAGS.sd
     es = FLAGS.es
-    feature = FLAGS.feature
+    tb = FLAGS.tb
+    gpu_fraction = FLAGS.gpu_fraction
+    # we = FLAGS.iweights
     workers = FLAGS.workers
     test_dirs = FLAGS.test_dirs
+    lr = FLAGS.learning_rate
+    feature = FLAGS.feature
 
-    regressor_training_main(folders, val_folders, model_name, time, epochs, batch_size, opt, lropf, sd, es,
-                            feature, workers, test_dirs)
+    regressor_training_main(folders, val_folders, model_name, time, epochs, batch_size, opt, lr, lropf, sd, es,
+                            feature, workers, test_dirs, intens, tb, gpu_fraction)

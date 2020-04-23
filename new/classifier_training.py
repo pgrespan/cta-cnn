@@ -1,3 +1,6 @@
+import warnings
+warnings.simplefilter('ignore')
+
 import argparse
 import datetime
 import multiprocessing as mp
@@ -9,7 +12,6 @@ from os.path import isfile, join
 
 import keras
 import keras.backend as K
-import tensorflow as tf
 import numpy as np
 # from adabound import AdaBound
 from classifier_selector import select_classifier
@@ -18,26 +20,30 @@ from classifier_tester import tester
 from classifier_training_plots import train_plots
 from generators import DataGeneratorC
 from keras import optimizers
-from keras.callbacks import LearningRateScheduler
+#from keras.models import load_model, Model
+#from keras.layers import Dense, Input
+from keras.callbacks import LearningRateScheduler, TensorBoard
 from keras.callbacks import ModelCheckpoint, EarlyStopping
 from losseshistory import LossHistoryC
 
 from utils import get_all_files
 
+import tensorflow as tf
 
-###################################
-# TensorFlow wizardry for GPU dynamic memory allocation
-config = tf.ConfigProto()
-# Don't pre-allocate memory; allocate as-needed
-config.gpu_options.allow_growth = True
-# Only allow a fraction of the GPU memory to be allocated
-config.gpu_options.per_process_gpu_memory_fraction = 0.50
-# Create a session with the above options specified.
-K.tensorflow_backend.set_session(tf.Session(config=config))
-###################################
 
-def classifier_training_main(folders, val_folders, model_name, time, epochs, batch_size, opt, lropf, sd, es,
-                             workers, test_dirs):
+def classifier_training_main(folders, val_folders, model_name, time, epochs, batch_size, opt, learn_rate, lropf, sd, es,
+                             workers, test_dirs, tb, intensity_cut, gpu_fraction):
+    ###################################
+    # TensorFlow wizardry for GPU dynamic memory allocation
+    if gpu_fraction != 0 and gpu_fraction <= 1:
+        config = tf.ConfigProto()
+        # Don't pre-allocate memory; allocate as-needed
+        config.gpu_options.allow_growth = True
+        # Only allow a fraction of the GPU memory to be allocated
+        config.gpu_options.per_process_gpu_memory_fraction = gpu_fraction
+        # Create a session with the above options specified.
+        K.tensorflow_backend.set_session(tf.Session(config=config))
+    ###################################
 
     # remove semaphore warnings
     os.environ["PYTHONWARNINGS"] = "ignore:semaphore_tracker:UserWarning"
@@ -65,7 +71,7 @@ def classifier_training_main(folders, val_folders, model_name, time, epochs, bat
 
     # adam
     # default a_lr should be 0.001
-    a_lr = 0.01
+    a_lr = learn_rate
     a_beta_1 = 0.9
     a_beta_2 = 0.999
     a_epsilon = None
@@ -87,7 +93,7 @@ def classifier_training_main(folders, val_folders, model_name, time, epochs, bat
     mlr_lrop = a_lr / 100  # min lr
 
     # cuts
-    intensity_cut = 50
+    #intensity_cut = 500
     leakage2_intensity_cut = 0.2
 
     training_files = get_all_files(folders)
@@ -102,6 +108,7 @@ def classifier_training_main(folders, val_folders, model_name, time, epochs, bat
     train_idxs = training_generator.get_indexes()
     train_gammas = np.unique(train_idxs[:, 2], return_counts=True)[1][1]
     train_protons = np.unique(train_idxs[:, 2], return_counts=True)[1][0]
+    train_gamma_frac = training_generator.gamma_fraction()
 
     if len(val_folders) > 0:
         print('Building validation generator...')
@@ -111,6 +118,7 @@ def classifier_training_main(folders, val_folders, model_name, time, epochs, bat
         valid_idxs = validation_generator.get_indexes()
         valid_gammas = np.unique(valid_idxs[:, 2], return_counts=True)[1][1]
         valid_protons = np.unique(valid_idxs[:, 2], return_counts=True)[1][0]
+        valid_gamma_frac = validation_generator.gamma_fraction()
 
     # class_weight = {0: 1., 1: train_protons/train_gammas}
     # print(class_weight)
@@ -168,15 +176,17 @@ def classifier_training_main(folders, val_folders, model_name, time, epochs, bat
     hype_print += '\n' + 'Number of training batches: ' + str(len(training_generator))
     hype_print += '\n' + 'Number of training gammas: ' + str(train_gammas)
     hype_print += '\n' + 'Number of training protons: ' + str(train_protons)
-
+    hype_print += '\n' + 'Fraction of gamma in training set: ' + str(train_gamma_frac)
     if len(val_folders) > 0:
         hype_print += '\n' + 'Number of validation batches: ' + str(len(validation_generator))
         hype_print += '\n' + 'Number of validation gammas: ' + str(valid_gammas)
         hype_print += '\n' + 'Number of validation protons: ' + str(valid_protons)
+        hype_print += '\n' + 'Fraction of gamma in validation set: ' + str(valid_gamma_frac)
 
     # keras.backend.set_image_data_format('channels_first')
 
     model, hype_print = select_classifier(model_name, hype_print, channels, img_rows, img_cols)
+    #model = load_model('/home/pgrespan/nick_models/ResNetFSE_49_0.82375_0.80292.h5')
 
     hype_print += '\n' + '========================================================================================='
 
@@ -232,11 +242,12 @@ def classifier_training_main(folders, val_folders, model_name, time, epochs, bat
         adam = optimizers.Adam(lr=a_lr, beta_1=a_beta_1, beta_2=a_beta_2, epsilon=a_epsilon, decay=a_decay,
                                amsgrad=amsgrad)
         optimizer = adam
+    '''
     elif opt == 'adabound':
         adabound = AdaBound(lr=ab_lr, final_lr=ab_final_lr, gamma=ab_gamma, weight_decay=ab_weight_decay,
                             amsbound=False)
         optimizer = adabound
-
+    '''
     # reduce lr on plateau
     if lropf:
         lrop = keras.callbacks.ReduceLROnPlateau(monitor='val_acc', factor=f_lrop, patience=p_lrop, verbose=1,
@@ -262,6 +273,10 @@ def classifier_training_main(folders, val_folders, model_name, time, epochs, bat
         # early stopping
         early_stopping = EarlyStopping(monitor='val_acc', min_delta=md_es, patience=p_es, verbose=1, mode='max')
         callbacks.append(early_stopping)
+
+    if tb:
+        tensorboard = TensorBoard(log_dir=root_dir)
+        callbacks.append(tensorboard)
 
     model.compile(optimizer=optimizer, loss='binary_crossentropy', metrics=['accuracy'])
 
@@ -336,29 +351,38 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
-        '--dirs', type=str, default='', nargs='+', help='Folder that contain .h5 files train data.', required=True)
+        '-d', '--dirs', type=str, default='', nargs='+', help='Folder that contain .h5 files train data.', required=True)
     parser.add_argument(
-        '--val_dirs', type=str, default='', nargs='+', help='Folder that contain .h5 files valid data.', required=False)
-    parser.add_argument(
-        '--model', type=str, default='', help='Model type.', required=True)
-    parser.add_argument(
-        '--time', type=bool, default=True, help='Specify whether feeding the network with arrival time.', required=False)
-    parser.add_argument(
-        '--epochs', type=int, default=10, help='Number of epochs.', required=True)
-    parser.add_argument(
-        '--batch_size', type=int, default=64, help='Batch size.', required=True)
-    parser.add_argument(
-        '--opt', type=str, default='adam', help='Specify the optimizer.', required=False)
-    parser.add_argument(
-        '--lrop', type=bool, default=False, help='Specify whether use reduce lr on plateau.', required=False)
-    parser.add_argument(
-        '--sd', type=bool, default=False, help='Step decay.', required=False)
-    parser.add_argument(
-        '--es', type=bool, default=False, help='Specify whether use early stopping.', required=False)
-    parser.add_argument(
-        '--workers', type=int, default='', help='Number of workers.', required=True)
+        '-v', '--val_dirs', type=str, default='', nargs='+', help='Folder that contain .h5 files valid data.', required=False)
     parser.add_argument(
         '--test_dirs', type=str, default='', nargs='+', help='Folder that contain .h5 files test data.', required=False)
+    parser.add_argument(
+        '-m', '--model', type=str, default='', help='Model type.', required=True)
+    parser.add_argument(
+        '-e', '--epochs', type=int, default=10, help='Number of epochs.', required=True)
+    parser.add_argument(
+        '-bs', '--batch_size', type=int, default=64, help='Batch size.', required=True)
+    parser.add_argument(
+        '-w', '--workers', type=int, default='', help='Specify number of workers.', required=True)
+    parser.add_argument(
+        '-opt', '--optimizer', type=str, default='adam', help='Specify the optimizer.', required=False)
+    parser.add_argument(
+        '-t', '--time', help='Feed the network with arrival time.', action="store_true")
+    parser.add_argument(
+        '-i', '--intensity_cut', type=float, default=50, help='Specify event intensity threshold (default 50 phe)', required=False)
+    parser.add_argument(
+        '-lr', '--learning_rate', type=float, default=1e-04, help='Set Learning Rate (default 1e-04)', required=False)
+    parser.add_argument(
+        '--lrop', help='Reduce learning rate on plateau.', action="store_true")
+    parser.add_argument(
+        '--sd', help='Use step decay.', action="store_true")
+    parser.add_argument(
+        '--es', help='Use early stopping.', action="store_true")
+    parser.add_argument(
+        '--tb', help='Use TensorBoard.', action="store_true")
+    parser.add_argument(
+        '--gpu_fraction', type=float, default=0, help='Set limit to fraction of GPU memory usage. IMPORTANT: between 0 and 1.', required=False)
+
 
     FLAGS, unparsed = parser.parse_known_args()
 
@@ -367,29 +391,18 @@ if __name__ == "__main__":
     val_folders = FLAGS.val_dirs
     model_name = FLAGS.model
     time = FLAGS.time
+    intens=FLAGS.intensity_cut
     epochs = FLAGS.epochs
     batch_size = FLAGS.batch_size
-    opt = FLAGS.opt
+    opt = FLAGS.optimizer
     lropf = FLAGS.lrop
     sd = FLAGS.sd
     es = FLAGS.es
+    tb = FLAGS.tb
+    gpu_fraction = FLAGS.gpu_fraction
     # we = FLAGS.iweights
     workers = FLAGS.workers
     test_dirs = FLAGS.test_dirs
-
-    # ################################## LIMIT MEMORY CONSUMPTION
-    # TensorFlow wizardry
-    config = tf.ConfigProto()
-
-    # Don't pre-allocate memory; allocate as-needed
-    config.gpu_options.allow_growth = True
-
-    # Only allow a total of half the GPU memory to be allocated
-    config.gpu_options.per_process_gpu_memory_fraction = 0.5
-
-    # Create a session with the above options specified.
-    K.tensorflow_backend.set_session(tf.Session(config=config))
-    # ##################################
-
-    classifier_training_main(folders, val_folders, model_name, time, epochs, batch_size, opt, lropf, sd, es, workers,
-                             test_dirs)
+    lr = FLAGS.learning_rate
+    classifier_training_main(folders, val_folders, model_name, time, epochs, batch_size, opt, lr, lropf, sd, es, workers,
+                             test_dirs, tb, intens, gpu_fraction)

@@ -1,7 +1,11 @@
+import warnings
+warnings.simplefilter('ignore')
+
 import sys
 
 from regressors import RegressorV2, RegressorV3, ResNetF, ResNetH, ResNetXt, ResNetI, DenseNet, ResNetFSE, BaseLine, \
-    ResNetHSE, VGG16, ResNetFSEFixed, ResNeXt
+    ResNetHSE, ResNet50, VGG16, VGG16N, VGG19, ResNetFSEFixed
+#, ResNeXt
 
 
 
@@ -98,6 +102,11 @@ def regressor_selector(model_name, hype_print, channels, img_rows, img_cols, out
         hype_print += '\n' + 'Reduction: ' + str(reduction)
         hype_print += '\n' + 'dropout_rate: ' + str(dropout_rate)
         hype_print += '\n' + 'subsample_initial_block: ' + str(subsample_initial_block)
+    elif model_name == 'ResNet50':
+        resnet = ResNet50(outcomes, channels, img_rows, img_cols)
+        model = resnet.get_model()
+        params = model.count_params()
+        hype_print += '\n' + 'Model params: ' + str(params)
     elif model_name == 'ResNetFSE':
         wd = 1e-4
         hype_print += '\n' + 'Weight decay: ' + str(wd)
@@ -125,10 +134,23 @@ def regressor_selector(model_name, hype_print, channels, img_rows, img_cols, out
         params = model.count_params()
         hype_print += '\n' + 'Model params: ' + str(params)
     elif model_name == 'VGG16':
-        vgg16 = BaseLine(outcomes, channels, img_rows, img_cols)
+        vgg16 = VGG16(outcomes, channels, img_rows, img_cols)
         model = vgg16.get_model()
         params = model.count_params()
         hype_print += '\n' + 'Model params: ' + str(params)
+    elif model_name == 'VGG16N':
+        vgg16N = VGG16N(outcomes, channels, img_rows, img_cols)
+        model = vgg16N.get_model()
+        params = model.count_params()
+        hype_print += '\n' + 'Model params: ' + str(params)
+    elif model_name == 'VGG19':
+        vgg19 = VGG19(outcomes, channels, img_rows, img_cols)
+        model = vgg19.get_model()
+        params = model.count_params()
+        hype_print += '\n' + 'Model params: ' + str(params)
+
+    return model, hype_print
+'''
     elif model_name == 'ResNeXt29-4-8':
         depth = 29
         cardinality = 4
@@ -141,5 +163,5 @@ def regressor_selector(model_name, hype_print, channels, img_rows, img_cols, out
     else:
         print('Model name not valid')
         sys.exit(1)
+'''
 
-    return model, hype_print

@@ -1,3 +1,6 @@
+import warnings
+warnings.simplefilter('ignore')
+
 import keras
 import keras_contrib.applications
 from keras import backend as K
@@ -2024,7 +2027,23 @@ class ResNet34:
 
         return model
 
+class ResNet50:
 
+    def __init__(self, channels, img_rows, img_cols):
+        self.channels = channels
+        self.img_rows = img_rows
+        self.img_cols = img_cols
+
+    def get_model(self):
+        input_shape = (self.img_rows, self.img_cols, self.channels)
+        input_img = Input(input_shape, name='input_img')
+        base = keras.applications.resnet50.ResNet50(include_top=False, weights=None, input_tensor=input_img, pooling='max')
+        x = base.layers[-1].output
+        x = Dense(1, name='gammaness', activation='sigmoid')(x)
+        model = Model(inputs=input_img, output=x, name="resnet50")
+
+        return model
+'''
 class ResNet50:
 
     def __init__(self, channels, img_rows, img_cols, dropout):
@@ -2046,7 +2065,7 @@ class ResNet50:
                                                          activation='sigmoid')
 
         return model
-
+'''
 
 class ResNet101:
 
@@ -2188,7 +2207,7 @@ class ResNeXt:
         self.weight_decay = weight_decay
 
     def get_model(self):
-        model = resnext.ResNext((self.img_rows, self.img_cols, self.channels),
+        model = keras_contrib.applications.resnext.ResNext((self.img_rows, self.img_cols, self.channels),
                                 self.depth,
                                 self.cardinality,
                                 self.width,
@@ -2199,7 +2218,7 @@ class ResNeXt:
         return model
 
 
-class VGG16:
+class VGG16N:
 
     def __init__(self, channels, img_rows, img_cols):
         self.channels = channels
@@ -2277,9 +2296,45 @@ class VGG16:
         x = layers.Dense(1, activation='sigmoid')(x)
 
         # Create model.
-        self.model = models.Model(inputs, x, name='vgg16')
+        self.model = models.Model(inputs, x, name='vgg16N')
 
         return self.model
+
+
+class VGG16:
+
+    def __init__(self, channels, img_rows, img_cols):
+        self.channels = channels
+        self.img_rows = img_rows
+        self.img_cols = img_cols
+
+    def get_model(self):
+        input_shape = (self.img_rows, self.img_cols, self.channels)
+        input_img = Input(input_shape, name='input_img')
+        base = keras.applications.vgg16.VGG16(include_top=False, weights=None, input_tensor=input_img, pooling='max')
+        x = base.layers[-1].output
+        x = Dense(1, name='gammaness', activation='sigmoid')(x)
+        model = Model(inputs=input_img, output=x, name="vgg16")
+
+        return model
+
+
+class VGG19:
+
+    def __init__(self, channels, img_rows, img_cols):
+        self.channels = channels
+        self.img_rows = img_rows
+        self.img_cols = img_cols
+
+    def get_model(self):
+        input_shape = (self.img_rows, self.img_cols, self.channels)
+        input_img = Input(input_shape, name='input_img')
+        base = keras.applications.vgg19.VGG19(include_top=False, weights=None, input_tensor=input_img, pooling='max')
+        x = base.layers[-1].output
+        x = Dense(1, name='gammaness', activation='sigmoid')(x)
+        model = Model(inputs=input_img, output=x, name="vgg19")
+
+        return model
 
 
 class DenseNetSE:

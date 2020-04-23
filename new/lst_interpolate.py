@@ -82,7 +82,7 @@ def func(paths, ro, rc, rn):
             delta_alt = []
             intensities = []
             intensities_width_2 = []
-            acc_idxs = []  # accepted indexes    # in principle it can be removed when cuts (line AAA) are not used here
+            #acc_idxs = []  # accepted indexes    # in principle it can be removed when cuts (line AAA) are not used here
 
             cleaning_level = {'LSTCam': (3.5, 7.5, 2)}
 
@@ -128,7 +128,7 @@ def func(paths, ro, rc, rn):
                     intensities.append(intensity)
                     intensities_width_2.append(leakage2_intensity)
 
-                    acc_idxs += [i]  # also this one can be removed when no cuts here
+                    #acc_idxs += [i]  # also this one can be removed when no cuts here
 
             # lst_image_charge_interp = np.array(lst_image_charge_interp)
 
@@ -144,9 +144,9 @@ def func(paths, ro, rc, rn):
             data_file.create_dataset('Event_Info/ei_az', data=np.array(ei_az))
             data_file.create_dataset('Event_Info/ei_mc_energy', data=np.array(ei_mc_energy))
 
-            data_file.create_dataset('LST/LST_event_index', data=np.array(LST_event_index)[acc_idxs])
-            data_file.create_dataset('LST/LST_image_charge', data=np.array(LST_image_charge)[acc_idxs])
-            data_file.create_dataset('LST/LST_image_peak_times', data=np.array(LST_image_peak_times)[acc_idxs])
+            data_file.create_dataset('LST/LST_event_index', data=np.array(LST_event_index))
+            data_file.create_dataset('LST/LST_image_charge', data=np.array(LST_image_charge))
+            data_file.create_dataset('LST/LST_image_peak_times', data=np.array(LST_image_peak_times))
             data_file.create_dataset('LST/LST_image_charge_interp', data=np.array(lst_image_charge_interp))
             data_file.create_dataset('LST/LST_image_peak_times_interp', data=np.array(lst_image_peak_times_interp))
             data_file.create_dataset('LST/delta_alt', data=np.array(delta_alt))

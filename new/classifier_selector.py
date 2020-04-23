@@ -1,3 +1,6 @@
+import warnings
+warnings.simplefilter('ignore')
+
 import sys
 
 from keras.layers import Dense
@@ -5,7 +8,7 @@ from keras.utils.data_utils import get_file
 
 from classifiers import ClassifierV1, ClassifierV2, ClassifierV3, ResNet, ResNetA, ResNetB, ResNetC, ResNetD, ResNetE, \
     ResNetF, ResNetG, ResNetH, DenseNet, ResNetFSE, ResNet18, ResNet34, ResNet50, ResNet101, ResNet152, NASNetLarge, \
-    NASNetA, ResNetFSEA, BaseLine, ResNeXt, VGG16, ResNetFSEFixed, DenseNetSE
+    NASNetA, ResNetFSEA, BaseLine, ResNeXt, VGG16, VGG16N, VGG19, ResNetFSEFixed, DenseNetSE
 
 DENSENET_169_WEIGHTS_PATH_NO_TOP = r'https://github.com/titu1994/DenseNet/releases/download/v3.0/DenseNet-BC-169-32-no-top.h5'
 
@@ -324,10 +327,17 @@ def select_classifier(model_name, hype_print, channels, img_rows, img_cols):
         model = resnet.get_model()
         params = model.count_params()
         hype_print += '\n' + 'Model params: ' + str(params)
+#    elif model_name == 'ResNet50':
+#        dropout = 0.5
+#        hype_print += '\n' + 'dropout: ' + str(dropout)
+#        resnet = ResNet50(channels, img_rows, img_cols, dropout)
+#        model = resnet.get_model()
+#        params = model.count_params()
+#        hype_print += '\n' + 'Model params: ' + str(params)
     elif model_name == 'ResNet50':
-        dropout = 0.5
-        hype_print += '\n' + 'dropout: ' + str(dropout)
-        resnet = ResNet50(channels, img_rows, img_cols, dropout)
+    #   dropout = 0.5
+    #   hype_print += '\n' + 'dropout: ' + str(dropout)
+        resnet = ResNet50(channels, img_rows, img_cols)
         model = resnet.get_model()
         params = model.count_params()
         hype_print += '\n' + 'Model params: ' + str(params)
@@ -360,11 +370,19 @@ def select_classifier(model_name, hype_print, channels, img_rows, img_cols):
         model = bl.get_model()
         params = model.count_params()
         hype_print += '\n' + 'Model params: ' + str(params)
+    elif model_name == 'VGG16N':
+        vgg = VGG16N(channels, img_rows, img_cols)
+        model = vgg.get_model()
+        params = model.count_params()
+        hype_print += '\n' + 'Model params: ' + str(params)
     elif model_name == 'VGG16':
         vgg = VGG16(channels, img_rows, img_cols)
         model = vgg.get_model()
         params = model.count_params()
-        hype_print += '\n' + 'Model params: ' + str(params)
+    elif model_name == 'VGG19':
+        vgg = VGG19(channels, img_rows, img_cols)
+        model = vgg.get_model()
+        params = model.count_params()
     elif model_name == 'ResNeXt56-8-64':
         depth = 56
         cardinality = 8

@@ -1,21 +1,30 @@
 import argparse
 import random
-
+import keras.backend as K
 import pandas as pd
 from keras.models import load_model
 
 from generators import DataGeneratorC
 from utils import get_all_files
+import tensorflow as tf
 
+gpu_fraction = 0.5
+config = tf.ConfigProto()
+# Don't pre-allocate memory; allocate as-needed
+config.gpu_options.allow_growth = True
+# Only allow a fraction of the GPU memory to be allocated
+config.gpu_options.per_process_gpu_memory_fraction = gpu_fraction
+# Create a session with the above options specified.
+K.tensorflow_backend.set_session(tf.Session(config=config))
 
-def tester(folders, mdl, batch_size, atime, workers):
+def tester(folders, mdl, batch_size, atime, workers, intensity):
     h5files = get_all_files(folders)
     random.shuffle(h5files)
 
     model = load_model(mdl)
 
     print('Building test generator...')
-    test_generator = DataGeneratorC(h5files, batch_size=batch_size, arrival_time=atime, shuffle=False)
+    test_generator = DataGeneratorC(h5files, batch_size=batch_size, arrival_time=atime, shuffle=False, intensity=intensity)
     print('Number of test batches: ' + str(len(test_generator)))
 
     pr_labels = model.predict_generator(generator=test_generator, steps=None, max_queue_size=10, workers=workers,
@@ -52,6 +61,8 @@ if __name__ == "__main__":
         '--batch_size', type=int, default=10, help='Batch size.', required=True)
     parser.add_argument(
         '--workers', type=int, default=1, help='Number of workers.', required=True)
+    parser.add_argument(
+        '-i', '--intensity_cut', type=float, help='Specify event intensity threshold.', required=False)
 
     FLAGS, unparsed = parser.parse_known_args()
 
@@ -60,5 +71,6 @@ if __name__ == "__main__":
     at = FLAGS.time
     bs = FLAGS.batch_size
     w = FLAGS.workers
+    i = FLAGS.intensity_cut
 
-    tester(dirs, m, bs, at, w)
+    tester(dirs, m, bs, at, w, i)

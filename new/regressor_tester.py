@@ -10,7 +10,7 @@ from generators import DataGeneratorR
 from utils import get_all_files
 
 
-def tester(folders, mdl, batch_size, time, feature, workers):
+def tester(folders, mdl, batch_size, time, feature, workers, intensity_cut):
     h5files = get_all_files(folders)
     # random.shuffle(h5files)
 
@@ -128,11 +128,13 @@ if __name__ == "__main__":
     parser.add_argument(
         '--model', type=str, default='', help='Path of the model to load.', required=True)
     parser.add_argument(
-        '--batch_size', type=int, default=10, help='Batch size.', required=True)
-    parser.add_argument(
         '--time', type=bool, default='', help='Specify if feed the network with arrival time.', required=False)
     parser.add_argument(
+        '--batch_size', type=int, default=10, help='Batch size.', required=True)
+    parser.add_argument(
         '--workers', type=int, default=1, help='Number of workers.', required=True)
+    parser.add_argument(
+        '-i', '--intensity_cut', type=float, help='Specify event intensity threshold.', required=False)
     parser.add_argument(
         '--feature', type=str, default='energy', help='Feature to train/predict.', required=True)
 
@@ -144,5 +146,6 @@ if __name__ == "__main__":
     batch_size = FLAGS.batch_size
     workers = FLAGS.workers
     feature = FLAGS.feature
+    i = FLAGS.intensity_cut
 
-    tester(folders, model, batch_size, time, feature, workers)
+    tester(folders, model, batch_size, time, feature, workers, i)
