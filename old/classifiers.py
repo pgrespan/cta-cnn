@@ -1988,14 +1988,6 @@ class ResNet18:
         self.dropout = dropout
 
     def get_model(self):
-    def get_model(self):
-        input_shape = (self.img_rows, self.img_cols, self.channels)
-
-        # ResNet50
-        model = keras_contrib.applications.resnet.ResNet(input_shape=input_shape,
-                                                         block='basic',
-                                                         dropout=self.dropout,
-                                       
         input_shape = (self.img_rows, self.img_cols, self.channels)
 
         # ResNet50

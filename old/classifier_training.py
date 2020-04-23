@@ -17,7 +17,8 @@ import numpy as np
 from keras import optimizers
 from keras.callbacks import LearningRateScheduler
 from keras.callbacks import ModelCheckpoint, EarlyStopping
-
+#from keras.models import load_model
+import h5py
 
 #from adabound import AdaBound
 #from keras_radam import RAdam
@@ -31,20 +32,18 @@ from losseshistory import LossHistoryC
 from utils import get_all_files
 
 from classifier_selector import select_classifier
-'''
-###################################
-import tensorflow as tf
 
 # TensorFlow wizardry for GPU dynamic memory allocation
-config = tf.ConfigProto()
-# Don't pre-allocate memory; allocate as-needed
-config.gpu_options.allow_growth = True
-# Only allow a fraction of the GPU memory to be allocated
-config.gpu_options.per_process_gpu_memory_fraction = 0.50
-# Create a session with the above options specified.
-K.tensorflow_backend.set_session(tf.Session(config=config))
+if gpu_fraction != 0 and gpu_fraction <= 1:
+    config = tf.ConfigProto()
+    # Don't pre-allocate memory; allocate as-needed
+    config.gpu_options.allow_growth = True
+    # Only allow a fraction of the GPU memory to be allocated
+    config.gpu_options.per_process_gpu_memory_fraction = gpu_fraction
+    # Create a session with the above options specified.
+    K.tensorflow_backend.set_session(tf.Session(config=config))
 ###################################
-'''
+
 
 def classifier_training_main(folders, val_folders, model_name, time, epochs, batch_size, opt, val, red, lropf, sd, clr, es, workers,
                              test_dirs):
@@ -53,7 +52,7 @@ def classifier_training_main(folders, val_folders, model_name, time, epochs, bat
     os.environ["PYTHONWARNINGS"] = "ignore:semaphore_tracker:UserWarning"
 
     # avoid validation deadlock problem
-    mp.set_start_method('spawn', force=True)
+    #mp.set_start_method('spawn', force=True)
 
     # hard coded parameters !!!!! SHOULD BE TRUE !!!!!
     shuffle = True
@@ -127,7 +126,51 @@ def classifier_training_main(folders, val_folders, model_name, time, epochs, bat
     if clr and lropf:
         print('Cannot use CLR and Reduce lr on plateau')
         sys.exit(1)
+    '''
+    gfile = '/home/pgrespan/simulations/gamma_diff/train/gamma-diffuse_20deg_180deg_runs131-140___cta-prod3-demo-2147m-LaPalma-baseline-mono_interp.h5'
+    pfiles = ['/home/pgrespan/simulations/proton/train/proton_20deg_180deg_runs4341-4350___cta-prod3-demo-2147m-LaPalma-baseline-mono_interp.h5',
+             '/home/pgrespan/simulations/proton/train/proton_20deg_180deg_runs441-450___cta-prod3-demo-2147m-LaPalma-baseline-mono_interp.h5',
+             '/home/pgrespan/simulations/proton/train/proton_20deg_180deg_runs4441-4450___cta-prod3-demo-2147m-LaPalma-baseline-mono_interp.h5',
+             '/home/pgrespan/simulations/proton/train/proton_20deg_180deg_runs4451-4460___cta-prod3-demo-2147m-LaPalma-baseline-mono_interp.h5',
+             '/home/pgrespan/simulations/proton/train/proton_20deg_180deg_runs4481-4490___cta-prod3-demo-2147m-LaPalma-baseline-mono_interp.h5',
+             '/home/pgrespan/simulations/proton/train/proton_20deg_180deg_runs4501-4510___cta-prod3-demo-2147m-LaPalma-baseline-mono_interp.h5',
+             '/home/pgrespan/simulations/proton/train/proton_20deg_180deg_runs451-1000___cta-prod3-demo-2147m-LaPalma-baseline-mono_interp.h5',
+             '/home/pgrespan/simulations/proton/train/proton_20deg_180deg_runs4521-4530___cta-prod3-demo-2147m-LaPalma-baseline-mono_interp.h5',
+             '/home/pgrespan/simulations/proton/train/proton_20deg_180deg_runs4531-4540___cta-prod3-demo-2147m-LaPalma-baseline-mono_interp.h5',
+             '/home/pgrespan/simulations/proton/train/proton_20deg_180deg_runs4571-4580___cta-prod3-demo-2147m-LaPalma-baseline-mono_interp.h5']
 
+    h5f = h5py.File(gfile, 'r')
+    intensity = h5f['LST/intensities'][:]
+    leakage = h5f['LST/intensities_width_2'][:]
+    images = h5f['LST/LST_image_charge_interp'][:][(intensity>=50) & (leakage<=0.2)]
+    labels = [1] * len(images)
+    h5f.close()
+
+    print("Images shape gamma: {}".format(images.shape))
+    print("Labels shape gamma: {}".format(len(labels)))
+
+    for f in pfiles:
+        h5f = h5py.File(f, 'r')
+        intensity = h5f['LST/intensities'][:]
+        leakage = h5f['LST/intensities_width_2'][:]
+        crgs = h5f['LST/LST_image_charge_interp'][:][(intensity>=50) & (leakage<=0.2)]
+        lbl = [0] * len(crgs)
+        images = np.vstack((images,crgs))
+        labels+=lbl
+        h5f.close()
+    images = images.reshape(-1,100,100,1)
+    labels = np.array(labels)
+    '''
+    pickle_out = open("/home/pgrespan/catndogs/X.pickle", "wb")
+    pickle.dump(X, pickle_out)
+    pickle_out.close()
+
+    pickle_out = open("/home/pgrespan/catndogs/y.pickle", "wb")
+    pickle.dump(y, pickle_out)
+    pickle_out.close()
+    print("Images shape after protons: {}".format(images.shape))
+    print("Labels shape after protonms: {}".format(labels.shape))
+    '''
     # generators
     print('Building training generator...')
 
@@ -145,6 +188,7 @@ def classifier_training_main(folders, val_folders, model_name, time, epochs, bat
 
     # class_weight = {0: 1., 1: train_protons/train_gammas}
     # print(class_weight)
+    '''
 
     hype_print = '\n' + '======================================HYPERPARAMETERS======================================'
 
@@ -215,7 +259,7 @@ def classifier_training_main(folders, val_folders, model_name, time, epochs, bat
 
     hype_print += '\n' + 'Workers: ' + str(workers)
     hype_print += '\n' + 'Shuffle: ' + str(shuffle)
-
+    '''
     hype_print += '\n' + 'Number of training batches: ' + str(len(training_generator))
     hype_print += '\n' + 'Number of training gammas: ' + str(train_gammas)
     hype_print += '\n' + 'Number of training protons: ' + str(train_protons)
@@ -224,11 +268,12 @@ def classifier_training_main(folders, val_folders, model_name, time, epochs, bat
         hype_print += '\n' + 'Number of validation batches: ' + str(len(validation_generator))
         hype_print += '\n' + 'Number of validation gammas: ' + str(valid_gammas)
         hype_print += '\n' + 'Number of validation protons: ' + str(valid_protons)
-
-    # keras.backend.set_image_data_format('channels_first')
+    '''
+# keras.backend.set_image_data_format('channels_first')
 
     model, hype_print = select_classifier(model_name, hype_print, channels, img_rows, img_cols)
-
+ #   path_model = ''
+ #   model = load_model(path_model)
     hype_print += '\n' + '========================================================================================='
 
     # printing on screen hyperparameters
@@ -283,11 +328,12 @@ def classifier_training_main(folders, val_folders, model_name, time, epochs, bat
         adam = optimizers.Adam(lr=a_lr, beta_1=a_beta_1, beta_2=a_beta_2, epsilon=a_epsilon, decay=a_decay,
                                amsgrad=amsgrad)
         optimizer = adam
+    '''
     elif opt == 'radam':
     #    radam = RAdam(lr=ra_lr, beta_1=ra_beta_1, beta_2=ra_beta_2, epsilon=ra_epsilon, amsgrad=ramsgrad)
         radam = RAdam(learning_rate=ra_lr)
         optimizer = radam
-    '''
+    
     elif opt == 'adabound':
         adabound = AdaBound(lr=ab_lr, final_lr=ab_final_lr, gamma=ab_gamma, weight_decay=ab_weight_decay,
                             amsbound=False)
@@ -317,16 +363,25 @@ def classifier_training_main(folders, val_folders, model_name, time, epochs, bat
         # early stopping
         early_stopping = EarlyStopping(monitor='val_acc', min_delta=md_es, patience=p_es, verbose=1, mode='max')
         callbacks.append(early_stopping)
-
+    '''
     # clr
     if clr:
         lr_manager_clr = OneCycleLR(len(training_generator) * batch_size, epochs, batch_size, max_lr,
                                     end_percentage=e_per,
                                     maximum_momentum=maximum_momentum, minimum_momentum=minimum_momentum)
         callbacks.append(lr_manager_clr)
-
+    '''
     model.compile(optimizer=optimizer, loss='binary_crossentropy', metrics=['accuracy'])
 
+    model.fit(x=images,
+              y=labels,
+              batch_size=batch_size,
+              epochs=epochs,
+              verbose=1,
+              callbacks=callbacks,
+              validation_data=(images,labels),
+              shuffle=True)
+    '''
     if val:
         model.fit_generator(generator=training_generator,
                             validation_data=validation_generator,
@@ -349,7 +404,7 @@ def classifier_training_main(folders, val_folders, model_name, time, epochs, bat
                             workers=workers,
                             shuffle=False,
                             callbacks=callbacks)
-
+    '''
     # save results
     train_history = root_dir + '/train-history'
     with open(train_history, 'wb') as file_pi:
@@ -398,9 +453,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
-        '--dirs', type=str, default='', nargs='+', help='Folder that contain .h5 files train data.', required=True)
+        '--dirs', type=str, default='', nargs='+', help='Folder that contain .h5 files train data.', required=False)
     parser.add_argument(
-        '--val_dirs', type=str, default='', nargs='+', help='Folder that contain .h5 files valid data.', required=True)
+        '--val_dirs', type=str, default='', nargs='+', help='Folder that contain .h5 files valid data.', required=False)
     parser.add_argument(
         '--model', type=str, default='', help='Model type.', required=True)
     parser.add_argument(

@@ -1,4 +1,5 @@
 import warnings
+
 warnings.simplefilter('ignore')
 import multiprocessing
 import os
@@ -13,7 +14,7 @@ from astropy.coordinates import AltAz
 from lstchain.reco.utils import sky_to_camera
 from ctapipe.instrument import CameraGeometry
 from ctapipe.coordinates.nominal_frame import NominalFrame
-#from lstchain.reco.utils import disp_parameters
+# from lstchain.reco.utils import disp_parameters
 from astropy import units as u
 
 
@@ -27,9 +28,9 @@ class DataGeneratorC(keras.utils.Sequence):
         self.shuffle = shuffle
         self.generate_indexes()
         self.arrival_time = arrival_time
-        self.threshold = {'int':intens, 'lkg':lkg}
-#        self.intens = intens
-#        self.lkg = lkg
+        self.threshold = {'int': intens, 'lkg': lkg}
+        #        self.intens = intens
+        #        self.lkg = lkg
         self.on_epoch_end()
 
     def __len__(self):
@@ -79,7 +80,7 @@ class DataGeneratorC(keras.utils.Sequence):
             h5f = h5py.File(f, 'r')
             e_intensity = h5f['LST/intensities'][:]
             e_leakage = h5f['LST/intensities_width_2'][:]
-#            lst_idx = h5f['LST/LST_event_index'][:][(e_intensity > self.threshold['int']) & (e_leakage < self.threshold['lkg'])]
+            # lst_idx = h5f['LST/LST_event_index'][:][(e_intensity > self.threshold['int']) & (e_leakage < self.threshold['lkg'])]
             lst_idx = h5f['LST/LST_event_index'][:][
                 (e_intensity >= 50.) & (e_leakage <= 0.2)]
             h5f.close()
@@ -152,13 +153,13 @@ class DataGeneratorC(keras.utils.Sequence):
             row[3] = LST index
             '''
 
-            filename = self.h5files[int(row[0])] # row[0] is indexes[0], meaning the number ID of the file (e.g. "gammablablabla0.h5py" is file number 0, "gammablablabla1.hpy" is file number 1, etc etc)
+            filename = self.h5files[int(row[0])]  # row[0] is indexes[0], meaning the number ID of the file (e.g. "gammablablabla0.h5py" is file number 0, "gammablablabla1.hpy" is file number 1, etc etc)
 
             h5f = h5py.File(filename, 'r')
             # Store image
-            x[i, :, :, 0] = h5f['LST/LST_image_charge_interp'][int(row[1])] #store charge channel
+            x[i, :, :, 0] = h5f['LST/LST_image_charge_interp'][int(row[1])]  # store charge channel
             if self.arrival_time:
-                x[i, :, :, 1] = h5f['LST/LST_image_peak_times_interp'][int(row[1])] #store time channel, if any
+                x[i, :, :, 1] = h5f['LST/LST_image_peak_times_interp'][int(row[1])]  # store time channel, if any
             # Store class
             y[i] = int(row[2])
 
@@ -203,7 +204,6 @@ class DataGeneratorR(keras.utils.Sequence):
 
         # if self.test_mode:
         #    self.feature_array = np.append(self.feature_array, y)
-
         return x, y
 
     def get_indexes(self):
