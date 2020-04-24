@@ -14,6 +14,7 @@ from ctapipe.image.cleaning import tailcuts_clean
 from ctapipe.instrument import CameraGeometry
 from scipy.interpolate import griddata
 from tables.exceptions import HDF5ExtError, NoSuchNodeError
+from tqdm import tqdm, trange
 
 '''
 usage: python lst_interpolate.py --dirs path/to/folder1 path/to/folder2 ... --rem_org 0 --rem_corr 0 --rem_nsnerr 0
@@ -46,7 +47,7 @@ def func(paths, ro, rc, rn):
     # img_rows, img_cols = 100, 100
 
     # iterate on each proton file & concatenate charge arrays
-    for f in paths:
+    for f in tqdm(paths):
 
         # get the data from the file
         try:
@@ -86,7 +87,7 @@ def func(paths, ro, rc, rn):
 
             cleaning_level = {'LSTCam': (3.5, 7.5, 2)}
 
-            for i in range(0, len(LST_image_charge)):
+            for i in trange(0, len(LST_image_charge), descr="Image acquisition"):
 
                 image = LST_image_charge[i]
                 time = LST_image_peak_times[i]
