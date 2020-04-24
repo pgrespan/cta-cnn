@@ -87,7 +87,7 @@ def func(paths, ro, rc, rn):
 
             cleaning_level = {'LSTCam': (3.5, 7.5, 2)}
 
-            for i in trange(0, len(LST_image_charge), descr="Image acquisition"):
+            for i in trange(0, len(LST_image_charge), desc="Image acquisition"):
 
                 image = LST_image_charge[i]
                 time = LST_image_peak_times[i]
