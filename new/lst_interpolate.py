@@ -208,9 +208,7 @@ if __name__ == '__main__':
         '--rem_nsnerr', type=str, default='0', help='Select 1 to remove files that raise NoSuchNodeError exception.',
         required=False)
     parser.add_argument(
-        '--parallel', type=bool, default=False,
-        help='Select 0 to process files using single CPU computation (useful when files are too big).',
-        required=False)
+        '--parallel', help='Use parallel computation.', action="store_true")
 
     FLAGS, unparsed = parser.parse_known_args()
 
@@ -231,8 +229,9 @@ if __name__ == '__main__':
         files = [join(path, f) for f in listdir(path) if (
                 isfile(join(path, f))
                 and f.endswith(".h5")
-                and not f.endswith("_interp.h5")
-                and (f[:-3]+'_interp.h5') not in listdir(path))]
+                #and not f.endswith("_interp.h5")
+                #and (f[:-3]+'_interp.h5') not in listdir(path)
+                )]
         all_files = all_files + files
 
     # print('Files: ' + '\n' + str(all_files) + '\n')
