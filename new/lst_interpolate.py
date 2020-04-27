@@ -36,6 +36,7 @@ def get_LST_data(data):
     data_LST = data.root.LST_LSTCam
 
     # LST data
+    # MEMO if [i, 0, j, k] is e.g. the list #3, then ith, jth and kth belong to event #3
     LST_event_index = [x['event_index'] for x in data_LST.iterrows()]
     LST_image_charge = [x['charge'] for x in data_LST.iterrows()]
     LST_image_peak_times = [x['peakpos'] for x in data_LST.iterrows()]
@@ -55,6 +56,7 @@ def func(paths, ro, rc, rn):
             _, LST_event_index, LST_image_charge, LST_image_peak_times = get_LST_data(data_p)
             _, ei_alt, ei_az, ei_mc_energy = get_event_data(data_p)
 
+            # Excluding the 0th element - it's the empty one!!
             LST_event_index = LST_event_index[1:]
             LST_image_charge = LST_image_charge[1:]
             LST_image_peak_times = LST_image_peak_times[1:]
@@ -75,6 +77,7 @@ def func(paths, ro, rc, rn):
                 alt_array = 90
             '''
 
+            # LST coordinates (pointing position)
             point = AltAz(alt=alt_array * u.rad, az=az_array * u.rad)
 
             lst_image_charge_interp = []
@@ -86,7 +89,7 @@ def func(paths, ro, rc, rn):
             acc_idxs = []  # accepted indexes    # in principle it can be removed when cuts (line AAA) are not used here
 
             cleaning_level = {'LSTCam': (3.5, 7.5, 2)}
-
+            count = 0
             for i in trange(0, len(LST_image_charge), desc="Image acquisition"):
 
                 image = LST_image_charge[i]
@@ -131,6 +134,10 @@ def func(paths, ro, rc, rn):
 
                     acc_idxs += [i]  # also this one can be removed when no cuts here
 
+                else:
+                    count += 1
+                    print("Event #{} rejected (No islands)! Cumulative count: {}".format(i, count))
+
             # lst_image_charge_interp = np.array(lst_image_charge_interp)
 
             data_p.close()
@@ -145,9 +152,12 @@ def func(paths, ro, rc, rn):
             data_file.create_dataset('Event_Info/ei_az', data=np.array(ei_az))
             data_file.create_dataset('Event_Info/ei_mc_energy', data=np.array(ei_mc_energy))
 
-            data_file.create_dataset('LST/LST_event_index', data=np.array(LST_event_index))
-            data_file.create_dataset('LST/LST_image_charge', data=np.array(LST_image_charge))
-            data_file.create_dataset('LST/LST_image_peak_times', data=np.array(LST_image_peak_times))
+            data_file.create_dataset('LST/LST_event_index', data=np.array(LST_event_index)[acc_idxs])
+            data_file.create_dataset('LST/LST_image_charge', data=np.array(LST_image_charge)[acc_idxs])
+            data_file.create_dataset('LST/LST_image_peak_times', data=np.array(LST_image_peak_times)[acc_idxs])
+            # data_file.create_dataset('LST/LST_event_index', data=np.array(LST_event_index))
+            # data_file.create_dataset('LST/LST_image_charge', data=np.array(LST_image_charge))
+            # data_file.create_dataset('LST/LST_image_peak_times', data=np.array(LST_image_peak_times))
             data_file.create_dataset('LST/LST_image_charge_interp', data=np.array(lst_image_charge_interp))
             data_file.create_dataset('LST/LST_image_peak_times_interp', data=np.array(lst_image_peak_times_interp))
             data_file.create_dataset('LST/delta_alt', data=np.array(delta_alt))
@@ -202,14 +212,13 @@ if __name__ == '__main__':
     parser.add_argument(
         '--dirs', type=str, default='', nargs='+', help='Folder that contain .h5 files.', required=True)
     parser.add_argument(
-        '--rem_org', type=str, default='0', help='Select 1 to remove the original files.', required=False)
+        '--rem_org', help='Remove the original files.', action="store_true")
     parser.add_argument(
-        '--rem_corr', type=str, default='0', help='Select 1 to remove corrupted files.', required=False)
+        '--rem_corr', help='Remove corrupted files.', action="store_true")
     parser.add_argument(
-        '--rem_nsnerr', type=str, default='0', help='Select 1 to remove files that raise NoSuchNodeError exception.',
-        required=False)
+        '--rem_nsnerr', help='Remove files that raise NoSuchNodeError exception.', action="store_true")
     parser.add_argument(
-        '--parallel', help='Use parallel computation.', action="store_true")
+        '--parallel', help='Use parallel computation (not safe when files are too big).', action="store_true")
 
     FLAGS, unparsed = parser.parse_known_args()
 

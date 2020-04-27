@@ -14,6 +14,7 @@ from ctapipe.image.cleaning import tailcuts_clean
 from ctapipe.instrument import CameraGeometry
 from scipy.interpolate import griddata
 from tables.exceptions import HDF5ExtError, NoSuchNodeError
+from tqdm import tqdm, trange
 
 '''
 usage: python lst_interpolate.py --dirs path/to/folder1 path/to/folder2 ... --rem_org 0 --rem_corr 0 --rem_nsnerr 0
@@ -76,7 +77,7 @@ def func(paths, ro, rc, rn):
                 alt_array = 90
             '''
 
-            # so this is CTA/LST position?
+            # LST coordinates (pointing position)
             point = AltAz(alt=alt_array * u.rad, az=az_array * u.rad)
 
             lst_image_charge_interp = []
@@ -89,7 +90,7 @@ def func(paths, ro, rc, rn):
 
             cleaning_level = {'LSTCam': (3.5, 7.5, 2)}
             count = 0
-            for i in range(0, len(LST_image_charge)):
+            for i in trange(0, len(LST_image_charge)):
 
                 image = LST_image_charge[i]
                 time = LST_image_peak_times[i]
@@ -132,6 +133,7 @@ def func(paths, ro, rc, rn):
                     intensities_width_2.append(leakage2_intensity)
 
                     acc_idxs += [i]  # also this one can be removed when no cuts here
+
                 else:
                     count += 1
                     print("Event #{} rejected (No islands)! Cumulative count: {}".format(i, count))
@@ -160,6 +162,7 @@ def func(paths, ro, rc, rn):
             data_file.create_dataset('LST/LST_image_peak_times_interp', data=np.array(lst_image_peak_times_interp))
             data_file.create_dataset('LST/delta_alt', data=np.array(delta_alt))
             data_file.create_dataset('LST/delta_az', data=np.array(delta_az))
+
             data_file.create_dataset('LST/intensities', data=np.array(intensities))
             data_file.create_dataset('LST/intensities_width_2', data=np.array(intensities_width_2))
 
