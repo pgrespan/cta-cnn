@@ -86,9 +86,9 @@ class DataGeneratorC(keras.utils.Sequence):
 
         for l, f in enumerate(h5files):
             h5f = h5py.File(f, 'r')
-            lst_idx = h5f['LST/LST_event_index'][:]
             intensities = h5f['LST/intensities'][:]
             intensities_width_2 = h5f['LST/intensities_width_2'][:]
+            lst_idx = h5f['LST/LST_event_index'][:len(intensities)]
             h5f.close()
             r = np.arange(len(lst_idx))
 
@@ -235,9 +235,9 @@ class DataGeneratorR(keras.utils.Sequence):
 
         for l, f in enumerate(h5files):
             h5f = h5py.File(f, 'r')
-            lst_idx = h5f['LST/LST_event_index'][:]
             intensities = h5f['LST/intensities'][:]
             intensities_width_2 = h5f['LST/intensities_width_2'][:]
+            lst_idx = h5f['LST/LST_event_index'][:len(intensities)] # QUESTA E' UNA PEZZA, C'È UN ERRORE NEI FILES INTERPOLATI
             h5f.close()
 
             r = np.arange(len(lst_idx))

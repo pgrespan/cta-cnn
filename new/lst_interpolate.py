@@ -83,7 +83,7 @@ def func(paths, ro, rc, rn):
             delta_alt = []
             intensities = []
             intensities_width_2 = []
-            #acc_idxs = []  # accepted indexes    # in principle it can be removed when cuts (line AAA) are not used here
+            acc_idxs = []  # accepted indexes    # in principle it can be removed when cuts (line AAA) are not used here
 
             cleaning_level = {'LSTCam': (3.5, 7.5, 2)}
 
@@ -129,7 +129,7 @@ def func(paths, ro, rc, rn):
                     intensities.append(intensity)
                     intensities_width_2.append(leakage2_intensity)
 
-                    #acc_idxs += [i]  # also this one can be removed when no cuts here
+                    acc_idxs += [i]  # also this one can be removed when no cuts here
 
             # lst_image_charge_interp = np.array(lst_image_charge_interp)
 

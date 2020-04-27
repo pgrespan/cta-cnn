@@ -24,7 +24,7 @@ class ResNet50:
     def get_model(self):
         input_shape = (self.img_rows, self.img_cols, self.channels)
         input_img = Input(input_shape, name='input_img')
-        base = keras.applications.resnet50.ResNet50(include_top=False, weights=None, input_tensor=input_img, pooling='max')
+        base = keras.applications.resnet50.ResNet50(include_top=True, weights=None, input_tensor=input_img, pooling='max')
         x = base.layers[-1].output
         x = Dense(self.outcomes, name='gammaness', activation='linear')(x)
         model = Model(inputs=input_img, output=x, name="resnet50")
@@ -1435,6 +1435,24 @@ class ResNetI:
 
         return model
 
+
+class DenseNet121:
+
+    def __init__(self, outcomes, channels, img_rows, img_cols):
+        self.channels = channels
+        self.img_rows = img_rows
+        self.img_cols = img_cols
+        self.outcomes = outcomes
+
+    def get_model(self):
+        input_shape = (self.img_rows, self.img_cols, self.channels)
+        input_img = Input(input_shape, name='input_img')
+        base = keras.applications.densenet.DenseNet121(include_top=True, weights=None, input_tensor=input_img, pooling='max')
+        #base = keras.applications.resnet50.ResNet50(include_top=False, weights=None, input_tensor=input_img, pooling='max')
+        x = base.layers[-1].output
+        x = Dense(self.outcomes, name='gammaness', activation='linear')(x)
+        model = Model(inputs=input_img, output=x, name="densenet121")
+        return model
 
 class DenseNet:
 

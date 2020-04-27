@@ -4,7 +4,7 @@ warnings.simplefilter('ignore')
 import sys
 
 from regressors import RegressorV2, RegressorV3, ResNetF, ResNetH, ResNetXt, ResNetI, DenseNet, ResNetFSE, BaseLine, \
-    ResNetHSE, ResNet50, VGG16, VGG16N, VGG19, ResNetFSEFixed
+    ResNetHSE, ResNet50, VGG16, VGG16N, VGG19, ResNetFSEFixed, DenseNet121
 #, ResNeXt
 
 
@@ -102,6 +102,11 @@ def regressor_selector(model_name, hype_print, channels, img_rows, img_cols, out
         hype_print += '\n' + 'Reduction: ' + str(reduction)
         hype_print += '\n' + 'dropout_rate: ' + str(dropout_rate)
         hype_print += '\n' + 'subsample_initial_block: ' + str(subsample_initial_block)
+    elif model_name == 'DenseNet121':
+        net = DenseNet121(outcomes, channels, img_rows, img_cols)
+        model = net.get_model()
+        params = model.count_params()
+        hype_print += '\n' + 'Model params: ' + str(params)
     elif model_name == 'ResNet50':
         resnet = ResNet50(outcomes, channels, img_rows, img_cols)
         model = resnet.get_model()
@@ -148,7 +153,6 @@ def regressor_selector(model_name, hype_print, channels, img_rows, img_cols, out
         model = vgg19.get_model()
         params = model.count_params()
         hype_print += '\n' + 'Model params: ' + str(params)
-
     return model, hype_print
 '''
     elif model_name == 'ResNeXt29-4-8':

@@ -41,8 +41,8 @@ def worker(h5files, i, return_dict, interp, threshold):
             e_intensity = h5f['LST/intensities'][1:]
             e_leakage = h5f['LST/intensities_width_2'][1:]
 
-            lengths['tot'] += len(h5f['LST/LST_event_index'][1:])
-            lengths['cut'] += len(h5f['LST/LST_event_index'][1:][(e_intensity > threshold['int']) & (e_leakage < threshold['lkg'])])
+            lengths['tot'] += len(e_intensity)
+            lengths['cut'] += len(e_intensity[(e_intensity >= threshold['int']) & (e_leakage <= threshold['lkg'])])
             h5f.close()
     else:
         for l, f in enumerate(h5files):
@@ -73,9 +73,9 @@ if __name__ == '__main__':
     parser.add_argument(
         '--interp', type=bool, default=False, help='Specify if count on interpolated files or not.', required=False)
     parser.add_argument(
-        '--int', type=float, default='50', help='Set a lower limit (threshold) on event intensity.', required=False)
+        '--int', type=float, default='0', help='Set a lower limit (threshold) on event intensity.', required=False)
     parser.add_argument(
-        '--lkg', type=float, default='0.2', help='Set an upper limit to leakage on intensity.', required=False)
+        '--lkg', type=float, default='1', help='Set an upper limit to leakage on intensity.', required=False)
 
     FLAGS, unparsed = parser.parse_known_args()
 
@@ -100,7 +100,7 @@ if __name__ == '__main__':
 
     if interp:
         ew = "_interp.h5"
-        print('Trying to find interpolated files...')
+        print('\nTrying to find interpolated files...')
     else:
         ew = ".h5"
         print('Trying to find not interpolated files...')
@@ -135,7 +135,7 @@ if __name__ == '__main__':
     for p in processes:
         p.join()
 
-    print(return_dict)
+    #print(return_dict)
 
     print('Number of files: ' + str(num_files))
     tot_len = 0
@@ -144,7 +144,8 @@ if __name__ == '__main__':
         tot_len += v['tot']
         cut_len += v['cut']
 
-    print('Number of events: ' + str(tot_len))
+    print('\nNumber of events: ' + str(tot_len))
     if interp:
-        print('Number of cut events: ' + str(cut_len))
+        print('Number of selected events: {} ({:.1f}%)\n'.format(cut_len, cut_len/tot_len*100))
+
 
