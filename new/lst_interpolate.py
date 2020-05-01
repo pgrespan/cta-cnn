@@ -48,10 +48,10 @@ def func(paths, ro, rc, rn):
     # img_rows, img_cols = 100, 100
 
     # iterate on each proton file & concatenate charge arrays
-    for f in tqdm(paths):
-
+    for n, f in enumerate(paths):
         # get the data from the file
         try:
+            print("Opening file #{}...".format(n))
             data_p = tables.open_file(f)
             _, LST_event_index, LST_image_charge, LST_image_peak_times = get_LST_data(data_p)
             _, ei_alt, ei_az, ei_mc_energy = get_event_data(data_p)
@@ -65,8 +65,10 @@ def func(paths, ro, rc, rn):
             camera = CameraGeometry.from_name("LSTCam")
             points = np.array([np.array(camera.pix_x / u.m), np.array(camera.pix_y / u.m)]).T
 
-            grid_x, grid_y = np.mgrid[-1.25:1.25:100j, -1.25:1.25:100j]
-
+            # original choice by Nicola: 100x100 points in 2.5m x 2.5m
+            #grid_x, grid_y = np.mgrid[-1.25:1.25:100j, -1.25:1.25:100j]
+            # I choose instead 96x88 px in 2.40m x 2.20m: same spatial separation (2.5 m), less points
+            grid_x, grid_y = np.mgrid[-1.20:1.20:96j, -1.10:1.10:88j]
             # alt az of the array
             az_array = 0  # before was ai_run_array_direction[0][0], now it is hardcoded as it's not present in new files
             alt_array = 1.2217305  # ai_run_array_direction[0][1]
@@ -90,7 +92,8 @@ def func(paths, ro, rc, rn):
 
             cleaning_level = {'LSTCam': (3.5, 7.5, 2)}
             count = 0
-            for i in trange(0, len(LST_image_charge), desc="Image acquisition"):
+            #rejected = open(f[:-3] + "_rejected.txt", "w")
+            for i in trange(0, len(LST_image_charge), desc="Images interpolation"):
 
                 image = LST_image_charge[i]
                 time = LST_image_peak_times[i]
@@ -136,14 +139,14 @@ def func(paths, ro, rc, rn):
 
                 else:
                     count += 1
-                    print("Event #{} rejected (No islands)! Cumulative count: {}".format(i, count))
-
+                #    #rejected.write("{}.\tImage #{} rejected (no islands)!\n".format(count, i))
+                #    print("No islands: image #{} rejected! (cumulative: {})\n".format(i, count), end='\r')
             # lst_image_charge_interp = np.array(lst_image_charge_interp)
-
+            print("\nNumber of rejected images: {} ({:.1f}%)".format(count, count / len(intensities) *100))
             data_p.close()
+            #rejected.close()
 
             filename = f[:-3] + '_interp.h5'
-
             print("Writing file: " + filename)
 
             data_file = h5py.File(filename, 'w')
