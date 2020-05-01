@@ -9,7 +9,7 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error
 
 
 def test_plots(pkl, feature):
-    folder = os.path.dirname(pkl)
+    folder = os.path.join(os.path.dirname(pkl), "..")
     df = pd.read_pickle(pkl)
 
     # print(df)
@@ -64,7 +64,7 @@ def test_plots(pkl, feature):
         plt.colorbar(hE[3])
         plt.xlabel('$log_{10}E_{gammas}[TeV]$', fontsize=15)
         plt.ylabel('$log_{10}E_{rec}[TeV]$', fontsize=15)
-        plt.plot(df['GroundTruth'], df['GroundTruth'], "-", color='red')
+        #plt.plot(df['GroundTruth'], df['GroundTruth'], "-", color='red')
 
         plt.title('Histogram2D - Energy reconstruction')
         plt.tight_layout()

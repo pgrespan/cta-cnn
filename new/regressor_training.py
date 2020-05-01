@@ -32,14 +32,14 @@ def regressor_training_main(folders, val_folders, model_name, time, epochs, batc
                             feature, workers, test_dirs, intensity_cut, tb, gpu_fraction):
     ###################################
     # TensorFlow wizardry for GPU dynamic memory allocation
-    if gpu_fraction != 0 and gpu_fraction <= 1:
-        config = tf.ConfigProto()
-        # Don't pre-allocate memory; allocate as-needed
-        config.gpu_options.allow_growth = True
-        # Only allow a fraction of the GPU memory to be allocated
-        config.gpu_options.per_process_gpu_memory_fraction = gpu_fraction
-        # Create a session with the above options specified.
-        K.tensorflow_backend.set_session(tf.Session(config=config))
+    #if gpu_fraction != 0 and gpu_fraction <= 1:
+    config = tf.ConfigProto()
+    # Don't pre-allocate memory; allocate as-needed
+    config.gpu_options.allow_growth = True
+    # Only allow a fraction of the GPU memory to be allocated
+    config.gpu_options.per_process_gpu_memory_fraction = 0.5
+    # Create a session with the above options specified.
+    K.tensorflow_backend.set_session(tf.Session(config=config))
     ###################################
 
     # remove semaphore warnings
@@ -201,7 +201,8 @@ def regressor_training_main(folders, val_folders, model_name, time, epochs, batc
     now = datetime.datetime.now()
     root_dir = now.strftime(model_name + '_' + feature + '_' + '%Y-%m-%d_%H-%M')
     mkdir(root_dir)
-
+    models_dir = join(root_dir, "models")
+    mkdir(models_dir)
     # writing hyperparameters on file
     f = open(root_dir + '/hyperparameters.txt', 'w')
     f.write(hype_print)
@@ -213,11 +214,11 @@ def regressor_training_main(folders, val_folders, model_name, time, epochs, batc
 
     if len(val_folders) > 0:
         checkpoint = ModelCheckpoint(
-            filepath=root_dir + '/' + model_name + '_{epoch:02d}_{loss:.5f}_{val_loss:.5f}.h5', monitor='val_loss',
+            filepath=models_dir + '/' + model_name + '_{epoch:02d}_{loss:.5f}_{val_loss:.5f}.h5', monitor='val_loss',
             save_best_only=True)
     else:
         checkpoint = ModelCheckpoint(
-            filepath=root_dir + '/' + model_name + '_{epoch:02d}_{loss:.5f}.h5', monitor='loss',
+            filepath=models_dir + '/' + model_name + '_{epoch:02d}_{loss:.5f}.h5', monitor='loss',
             save_best_only=True)
 
     callbacks.append(checkpoint)
@@ -281,7 +282,12 @@ def regressor_training_main(folders, val_folders, model_name, time, epochs, batc
         callbacks.append(early_stopping)
 
     if tb:
-        tensorboard = TensorBoard(log_dir=root_dir)
+        tb_path = './tb/'
+        if not os.path.exists(tb_path):
+            os.mkdir(tb_path)
+        tb_path = os.path.join(tb_path, root_dir)
+        os.mkdir(tb_path)
+        tensorboard = TensorBoard(log_dir=tb_path)
         callbacks.append(tensorboard)
 
     model.compile(optimizer=optimizer, loss=loss)
@@ -381,6 +387,11 @@ if __name__ == "__main__":
     parser.add_argument(
         '-lr', '--learning_rate', type=float, default=1e-04, help='Set Learning Rate (default 1e-04)', required=False)
     parser.add_argument(
+        '--gpu_fraction', type=float, default=0.,
+        help='Set limit to fraction of GPU memory usage. IMPORTANT: between 0 and 1.', required=False)
+    parser.add_argument(
+        '-f', '--feature', type=str, default='energy', help='Feature to train/predict.', required=True)
+    parser.add_argument(
         '--lrop', help='Reduce learning rate on plateau.', action="store_true")
     parser.add_argument(
         '--sd', help='Use step decay.', action="store_true")
@@ -388,10 +399,6 @@ if __name__ == "__main__":
         '--es', help='Use early stopping.', action="store_true")
     parser.add_argument(
         '--tb', help='Use TensorBoard.', action="store_true")
-    parser.add_argument(
-        '--gpu_fraction', type=float, default=0, help='Set limit to fraction of GPU memory usage. IMPORTANT: between 0 and 1.', required=False)
-    parser.add_argument(
-        '-f', '--feature', type=str, default='energy', help='Feature to train/predict.', required=True)
 
     FLAGS, unparsed = parser.parse_known_args()
 
@@ -408,7 +415,7 @@ if __name__ == "__main__":
     sd = FLAGS.sd
     es = FLAGS.es
     tb = FLAGS.tb
-    gpu_fraction = FLAGS.gpu_fraction
+    gpufraction = FLAGS.gpu_fraction
     # we = FLAGS.iweights
     workers = FLAGS.workers
     test_dirs = FLAGS.test_dirs
@@ -416,4 +423,4 @@ if __name__ == "__main__":
     feature = FLAGS.feature
 
     regressor_training_main(folders, val_folders, model_name, time, epochs, batch_size, opt, lr, lropf, sd, es,
-                            feature, workers, test_dirs, intens, tb, gpu_fraction)
+                            feature, workers, test_dirs, intens, tb, gpufraction)

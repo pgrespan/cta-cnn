@@ -191,13 +191,13 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
-        '--pkl', type=str, default='', help='pkl test file.', required=True)
+        '--file', type=str, default='', help='pkl test file.', required=True)
     parser.add_argument(
         '--feature', type=str, default='energy', help='Feature to train/predict.', required=True)
 
     FLAGS, unparsed = parser.parse_known_args()
 
-    pkl = FLAGS.pkl
+    pkl = FLAGS.file
     feature = FLAGS.feature
 
     test_plots(pkl, feature)

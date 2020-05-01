@@ -8,9 +8,23 @@ from keras.utils.generic_utils import Progbar
 
 from generators import DataGeneratorR
 from utils import get_all_files
+import tensorflow as tf
+import keras.backend as K
 
 
 def tester(folders, mdl, batch_size, time, feature, workers, intensity_cut):
+    ###################################
+    # TensorFlow wizardry for GPU dynamic memory allocation
+    #if gpu_fraction != 0 and gpu_fraction <= 1:
+    config = tf.ConfigProto()
+    # Don't pre-allocate memory; allocate as-needed
+    config.gpu_options.allow_growth = True
+    # Only allow a fraction of the GPU memory to be allocated
+    config.gpu_options.per_process_gpu_memory_fraction = 0.5
+    # Create a session with the above options specified.
+    K.tensorflow_backend.set_session(tf.Session(config=config))
+    ###################################
+
     h5files = get_all_files(folders)
     # random.shuffle(h5files)
 

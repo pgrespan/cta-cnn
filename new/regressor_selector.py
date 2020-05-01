@@ -3,41 +3,20 @@ warnings.simplefilter('ignore')
 
 import sys
 
-from regressors import RegressorV2, RegressorV3, ResNetF, ResNetH, ResNetXt, ResNetI, DenseNet, ResNetFSE, BaseLine, \
-    ResNetHSE, ResNet50, VGG16, VGG16N, VGG19, ResNetFSEFixed, DenseNet121
+from regressors import ResNetF, DenseNet, ResNetFSE, BaseLine, \
+     ResNet50, VGG16, VGG16N, VGG19, DenseNet121
 #, ResNeXt
 
 
 
 def regressor_selector(model_name, hype_print, channels, img_rows, img_cols, outcomes):
-    if model_name == 'RegressorV2':
-        class_v2 = RegressorV2(channels, img_rows, img_cols)
-        model = class_v2.get_model()
-    elif model_name == 'RegressorV3':
-        class_v3 = RegressorV3(img_rows, img_cols)
-        model = class_v3.get_model()
-    elif model_name == 'ResNetF':
+    if model_name == 'ResNetF':
         wd = 1e-5
         hype_print += '\n' + 'Weight decay: ' + str(wd)
         resnet = ResNetF(outcomes, channels, img_rows, img_cols, wd)
         model = resnet.get_model()
         params = model.count_params()
         hype_print += '\n' + 'Model params: ' + str(params)
-    elif model_name == 'ResNetH':
-        wd = 0
-        hype_print += '\n' + 'Weight decay: ' + str(wd)
-        resnet = ResNetH(outcomes, channels, img_rows, img_cols, wd)
-        model = resnet.get_model()
-    elif model_name == 'ResNetXt':
-        cardinality = 32
-        hype_print += '\n' + 'Cardinality: ' + str(cardinality)
-        resnet = ResNetXt(outcomes, channels, img_rows, img_cols)
-        model = resnet.get_model(cardinality=cardinality)
-    elif model_name == 'ResNetI':
-        wd = 1e-4
-        hype_print += '\n' + 'Weight decay: ' + str(wd)
-        resnet = ResNetI(outcomes, channels, img_rows, img_cols, wd)
-        model = resnet.get_model()
     elif model_name == 'DenseNet':
         depth = 64
         growth_rate = 12
@@ -119,20 +98,6 @@ def regressor_selector(model_name, hype_print, channels, img_rows, img_cols, out
         model = resnet.get_model()
         params = model.count_params()
         hype_print += '\n' + 'Model params: ' + str(params)
-    elif model_name == 'ResNetFSEFixed':
-        wd = 1e-4
-        hype_print += '\n' + 'Weight decay: ' + str(wd)
-        resnet = ResNetFSEFixed(outcomes, channels, img_rows, img_cols, wd)
-        model = resnet.get_model()
-        params = model.count_params()
-        hype_print += '\n' + 'Model params: ' + str(params)
-    elif model_name == 'ResNetHSE':
-        wd = 1e-4
-        hype_print += '\n' + 'Weight decay: ' + str(wd)
-        resnet = ResNetHSE(outcomes, channels, img_rows, img_cols, wd)
-        model = resnet.get_model()
-        params = model.count_params()
-        hype_print += '\n' + 'Model params: ' + str(params)
     elif model_name == 'BaseLine':
         bl = BaseLine(outcomes, channels, img_rows, img_cols)
         model = bl.get_model()
@@ -154,18 +119,3 @@ def regressor_selector(model_name, hype_print, channels, img_rows, img_cols, out
         params = model.count_params()
         hype_print += '\n' + 'Model params: ' + str(params)
     return model, hype_print
-'''
-    elif model_name == 'ResNeXt29-4-8':
-        depth = 29
-        cardinality = 4
-        width = 8
-        weight_decay = 5e-4
-        rxt = ResNeXt(outcomes, channels, img_rows, img_cols, depth, cardinality, width, weight_decay)
-        model = rxt.get_model()
-        params = model.count_params()
-        hype_print += '\n' + 'Model params: ' + str(params)
-    else:
-        print('Model name not valid')
-        sys.exit(1)
-'''
-

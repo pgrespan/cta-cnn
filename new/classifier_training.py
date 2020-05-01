@@ -8,7 +8,7 @@ import os
 import pickle
 from os import listdir
 from os import mkdir
-from os.path import isfile, join
+from os.path import isfile, isdir, join
 
 import keras
 import keras.backend as K
@@ -275,7 +275,10 @@ def classifier_training_main(folders, val_folders, model_name, time, epochs, bat
         callbacks.append(early_stopping)
 
     if tb:
-        tensorboard = TensorBoard(log_dir=root_dir)
+        tb_path = './tb'
+        if not os.path.exists(tb_path):
+            os.mkdir(tb_path)
+        tensorboard = TensorBoard(log_dir=tb_path)
         callbacks.append(tensorboard)
 
     model.compile(optimizer=optimizer, loss='binary_crossentropy', metrics=['accuracy'])
