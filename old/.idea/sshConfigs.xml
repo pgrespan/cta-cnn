@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="SshConfigs">
+    <configs>
+      <sshConfig authType="PASSWORD" host="localhost" id="06b5a949-b041-4129-98bd-5dabcc044c8c" port="6003" customName="ctadl" nameFormat="CUSTOM" username="pgrespan" />
+      <sshConfig authType="PASSWORD" host="localhost" id="18b1acec-7a2c-4bb6-add6-42704b9d8241" port="6005" customName="vm_pgrespan" nameFormat="CUSTOM" username="pgrespan" />
+    </configs>
+  </component>
+</project>

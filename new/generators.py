@@ -171,16 +171,18 @@ class DataGeneratorC(keras.utils.Sequence):
 class DataGeneratorR(keras.utils.Sequence):
     'Generates data for Keras'
 
-    def __init__(self, h5files, feature, batch_size=32, arrival_time=False, shuffle=True, intensity=50, leakage2_intensity=0.2):
+    def __init__(self, h5files, feature, batch_size=32, arrival_time=False, shuffle=True, intensity=50, leakage2_intensity=0.2, emin=-100, emax=100):
         self.batch_size = batch_size
         self.h5files = h5files
         self.feature = feature
-        self.indexes = np.array([], dtype=np.int64).reshape(0, 5)
+        self.indexes = np.array([], dtype=np.int64).reshape(0, 6)
         self.shuffle = shuffle
         self.generate_indexes()
         self.arrival_time = arrival_time
         self.intensity = intensity
         self.leakage2_intensity = leakage2_intensity
+        self.emin = emin
+        self.emax = emax
         self.apply_cuts()
         self.outcomes = 1
         if feature == 'xy': self.outcomes += 1
@@ -215,7 +217,11 @@ class DataGeneratorR(keras.utils.Sequence):
 
     def apply_cuts(self):
         self.indexes = self.indexes[
-            (self.indexes[:, 3] > self.intensity) & (self.indexes[:, 4] < self.leakage2_intensity)]
+            (self.indexes[:, 3] >= self.intensity) &
+            (self.indexes[:, 4] <= self.leakage2_intensity) &
+            (self.indexes[:, 5] <= self.emax) &
+            (self.indexes[:, 5] >= self.emin)
+            ]
 
     def chunkit(self, seq, num):
 
@@ -231,18 +237,22 @@ class DataGeneratorR(keras.utils.Sequence):
 
     def worker(self, h5files, positions, i, return_dict):
 
-        idx = np.array([], dtype=np.int64).reshape(0, 5)
+        idx = np.array([], dtype=np.int64).reshape(0, 6)
 
         for l, f in enumerate(h5files):
             h5f = h5py.File(f, 'r')
             intensities = h5f['LST/intensities'][:]
             intensities_width_2 = h5f['LST/intensities_width_2'][:]
             lst_idx = h5f['LST/LST_event_index'][:]
+            energy_MC = []
+            for id in lst_idx:
+                energy_MC.append(np.log10(h5f['Event_Info/ei_mc_energy'][:][int(id)]))
+            energy_MC = np.array(energy_MC)
             h5f.close()
 
             r = np.arange(len(lst_idx))
 
-            cp = np.dstack(([positions[l]] * len(r), r, lst_idx, intensities, intensities_width_2)).reshape(-1, 5)
+            cp = np.dstack(([positions[l]] * len(r), r, lst_idx, intensities, intensities_width_2, energy_MC)).reshape(-1, 6)
 
             idx = np.append(idx, cp, axis=0)
         return_dict[i] = idx
@@ -288,6 +298,8 @@ class DataGeneratorR(keras.utils.Sequence):
         x = np.empty([self.batch_size, 100, 100, self.arrival_time + 1])
         y = np.empty([self.batch_size, self.outcomes], dtype=float)
 
+        if self.feature == 'energy':
+            y = indexes[:,5]
         # Generate data
         for i, row in enumerate(indexes):
 
@@ -301,9 +313,10 @@ class DataGeneratorR(keras.utils.Sequence):
                 x[i, :, :, 1] = h5f['LST/LST_image_peak_times_interp'][int(row[1])]
 
             # Store features
-            if self.feature == 'energy':
-                y[i] = np.log10(h5f['Event_Info/ei_mc_energy'][:][int(row[2])])
-            elif self.feature == 'xy':
+            #if self.feature == 'energy':
+            #    y[i] = np.log10(h5f['Event_Info/ei_mc_energy'][:][int(row[2])])
+            #elif self.feature == 'xy':
+            if self.feature == 'xy':
                 y[i, 0] = h5f['LST/delta_alt'][:][int(row[1])]
                 y[i, 1] = h5f['LST/delta_az'][:][int(row[1])]
 
@@ -529,7 +542,6 @@ class DataGeneratorChain(keras.utils.Sequence):
 
     def __len__(self):
         'Denotes the number of batches per epoch'
-        # total number of images in the dataset
         return int(np.floor(self.indexes.shape[0] / self.batch_size))
 
     def __getitem__(self, index):

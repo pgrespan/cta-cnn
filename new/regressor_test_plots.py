@@ -9,7 +9,8 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error
 
 
 def test_plots(pkl, feature):
-    folder = os.path.join(os.path.dirname(pkl), "..")
+    #folder = os.path.join(os.path.dirname(pkl), "..")
+    folder = os.path.dirname(pkl)
     df = pd.read_pickle(pkl)
 
     # print(df)
@@ -59,8 +60,8 @@ def test_plots(pkl, feature):
         plt.savefig(folder + '/histograms.eps', format='eps', transparent=False)
 
         fig = plt.figure()
-
-        hE = plt.hist2d(df['GroundTruth'], df['Predicted'], bins=100)
+        lim = 2
+        hE = plt.hist2d(df['GroundTruth'], df['Predicted'], bins=100, range=[[-lim,lim],[-lim,lim]])
         plt.colorbar(hE[3])
         plt.xlabel('$log_{10}E_{gammas}[TeV]$', fontsize=15)
         plt.ylabel('$log_{10}E_{rec}[TeV]$', fontsize=15)

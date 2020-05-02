@@ -12,7 +12,7 @@ import tensorflow as tf
 import keras.backend as K
 
 
-def tester(folders, mdl, batch_size, time, feature, workers, intensity_cut):
+def tester(folders, mdl, batch_size, time, feature, workers, intensity_cut, emin, emax):
     ###################################
     # TensorFlow wizardry for GPU dynamic memory allocation
     #if gpu_fraction != 0 and gpu_fraction <= 1:
@@ -31,7 +31,7 @@ def tester(folders, mdl, batch_size, time, feature, workers, intensity_cut):
     model = load_model(mdl)
 
     print('Building test generator...')
-    test_generator = DataGeneratorR(h5files, feature=feature, batch_size=batch_size, arrival_time=time, shuffle=False)
+    test_generator = DataGeneratorR(h5files, feature=feature, batch_size=batch_size, arrival_time=time, shuffle=False, emin=emin, emax=emax)
     print('Number of test batches: ' + str(len(test_generator)))
 
     predict = model.predict_generator(generator=test_generator, max_queue_size=10, workers=workers,
@@ -150,6 +150,12 @@ if __name__ == "__main__":
     parser.add_argument(
         '-i', '--intensity_cut', type=float, help='Specify event intensity threshold.', required=False)
     parser.add_argument(
+        '--emin', type=float, default=-100, help='Specify min event MC energy in a log10 scale (default -100)',
+        required=False)
+    parser.add_argument(
+        '--emax', type=float, default=100, help='Specify max event MC energy in a log10 scale (default +100)',
+        required=False)
+    parser.add_argument(
         '--feature', type=str, default='energy', help='Feature to train/predict.', required=True)
 
     FLAGS, unparsed = parser.parse_known_args()
@@ -161,5 +167,7 @@ if __name__ == "__main__":
     workers = FLAGS.workers
     feature = FLAGS.feature
     i = FLAGS.intensity_cut
+    emin = FLAGS.emin
+    emax = FLAGS.emax
 
-    tester(folders, model, batch_size, time, feature, workers, i)
+    tester(folders, model, batch_size, time, feature, workers, i, emin, emax)

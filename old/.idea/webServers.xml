@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="WebServers">
+    <option name="servers">
+      <webServer id="2c12fdd8-31d2-4b4e-9e48-328fd004ba9b" name="ctadl" url="http://localhost">
+        <fileTransfer rootFolder="/home/pgrespan" accessType="SFTP" host="localhost" port="6003" sshConfigId="06b5a949-b041-4129-98bd-5dabcc044c8c" sshConfig="ctadl">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" passiveMode="true" shareSSLContext="true" />
+          </advancedOptions>
+        </fileTransfer>
+      </webServer>
+      <webServer id="fb19350b-a14c-4614-a1a7-9a71af1078c7" name="vm_pgrespan" url="http://localhost">
+        <fileTransfer rootFolder="/home/pgrespan" accessType="SFTP" host="localhost" port="6005" sshConfigId="18b1acec-7a2c-4bb6-add6-42704b9d8241" sshConfig="vm_pgrespan">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" passiveMode="true" shareSSLContext="true" />
+          </advancedOptions>
+        </fileTransfer>
+      </webServer>
+    </option>
+  </component>
+</project>

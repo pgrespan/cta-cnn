@@ -29,7 +29,7 @@ import tensorflow as tf
 
 
 def regressor_training_main(folders, val_folders, model_name, time, epochs, batch_size, opt, learning_rate, lropf, sd, es,
-                            feature, workers, test_dirs, intensity_cut, tb, gpu_fraction):
+                            feature, workers, test_dirs, intensity_cut, tb, gpu_fraction, emin, emax):
     ###################################
     # TensorFlow wizardry for GPU dynamic memory allocation
     #if gpu_fraction != 0 and gpu_fraction <= 1:
@@ -385,6 +385,12 @@ if __name__ == "__main__":
     parser.add_argument(
         '-i', '--intensity_cut', type=float, default=50, help='Specify event intensity threshold (default 50 phe)', required=False)
     parser.add_argument(
+        '--emin', type=float, default=-100, help='Specify min event MC energy in a log10 scale (default -100)',
+        required=False)
+    parser.add_argument(
+        '--emax', type=float, default=100, help='Specify max event MC energy in a log10 scale (default +100)',
+        required=False)
+    parser.add_argument(
         '-lr', '--learning_rate', type=float, default=1e-04, help='Set Learning Rate (default 1e-04)', required=False)
     parser.add_argument(
         '--gpu_fraction', type=float, default=0.,
@@ -421,6 +427,8 @@ if __name__ == "__main__":
     test_dirs = FLAGS.test_dirs
     lr = FLAGS.learning_rate
     feature = FLAGS.feature
+    emin = FLAGS.emin
+    emax = FLAGS.emax
 
     regressor_training_main(folders, val_folders, model_name, time, epochs, batch_size, opt, lr, lropf, sd, es,
-                            feature, workers, test_dirs, intens, tb, gpufraction)
+                            feature, workers, test_dirs, intens, tb, gpufraction, emin, emax)
