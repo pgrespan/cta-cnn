@@ -14,28 +14,31 @@ from ctapipe.image.cleaning import number_of_islands
 from astropy.coordinates import AltAz
 from lstchain.reco.utils import sky_to_camera #, disp_parameters
 from ctapipe.instrument import CameraGeometry
-from ctapipe.coordinates.nominal_frame import NominalFrame
 from astropy import units as u
+from astropy import units as u
+from ctapipe.coordinates import NominalFrame, AltAz
 
 
 class DataGeneratorC(keras.utils.Sequence):
     'Generates data for Keras'
 
-    def __init__(self, h5files, batch_size=32, arrival_time=False, shuffle=True, intensity=50, leakage2_intensity=0.2):
+    def __init__(self, h5files, batch_size=32, arrival_time=False, shuffle=True, intensity=50, leakage2_intensity=0.2, emin=-100, emax=100):
         self.batch_size = batch_size
         self.h5files = h5files
-        self.indexes = np.array([], dtype=np.int64).reshape(0, 6)
+        self.indexes = np.array([], dtype=np.int64).reshape(0, 7)
         self.shuffle = shuffle
         self.generate_indexes()
         self.arrival_time = arrival_time
         self.intensity = intensity
         self.leakage2_intensity = leakage2_intensity
+        self.emin = emin
+        self.emax = emax
         self.apply_cuts()
         self.on_epoch_end()
 
     def __len__(self):
-        'Denotes the number of batches per epoch'
-        # total number of images in the dataset
+        # Denotes the number of batches per epoch,
+        # i.e. total number of images in the dataset / batch size
         return int(np.floor(self.indexes.shape[0] / self.batch_size))
 
     def __getitem__(self, index):
@@ -66,7 +69,11 @@ class DataGeneratorC(keras.utils.Sequence):
 
     def apply_cuts(self):
         self.indexes = self.indexes[
-            (self.indexes[:, 4] > self.intensity) & (self.indexes[:, 5] < self.leakage2_intensity)]
+            (self.indexes[:, 4] >= self.intensity) &
+            (self.indexes[:, 5] <= self.leakage2_intensity) &
+            (self.indexes[:, 6] <= self.emax) &
+            (self.indexes[:, 6] >= self.emin)
+            ]
 
     def chunkit(self, seq, num):
 
@@ -82,13 +89,17 @@ class DataGeneratorC(keras.utils.Sequence):
 
     def worker(self, h5files, positions, i, return_dict):
 
-        idx = np.array([], dtype=np.int64).reshape(0, 6)
+        idx = np.array([], dtype=np.int64).reshape(0, 7)
 
         for l, f in enumerate(h5files):
             h5f = h5py.File(f, 'r')
             intensities = h5f['LST/intensities'][:]
             intensities_width_2 = h5f['LST/intensities_width_2'][:]
             lst_idx = h5f['LST/LST_event_index'][:]
+            energy_MC = []
+            for id in lst_idx:
+                energy_MC.append(np.log10(h5f['Event_Info/ei_mc_energy'][:][int(id)]))
+            energy_MC = np.array(energy_MC)
             h5f.close()
             r = np.arange(len(lst_idx))
 
@@ -100,7 +111,7 @@ class DataGeneratorC(keras.utils.Sequence):
                 clas = np.ones(len(r))
 
             # cp = np.dstack(np.meshgrid([positions[l]], r, clas, lst_idx)).reshape(-1, 4)  # cartesian product
-            cp = np.dstack(([positions[l]] * len(r), r, clas, lst_idx, intensities, intensities_width_2)).reshape(-1, 6)
+            cp = np.dstack(([positions[l]] * len(r), r, clas, lst_idx, intensities, intensities_width_2, energy_MC)).reshape(-1, 7)
 
             idx = np.append(idx, cp, axis=0)
         return_dict[i] = idx
@@ -171,11 +182,11 @@ class DataGeneratorC(keras.utils.Sequence):
 class DataGeneratorR(keras.utils.Sequence):
     'Generates data for Keras'
 
-    def __init__(self, h5files, feature, batch_size=32, arrival_time=False, shuffle=True, intensity=50, leakage2_intensity=0.2, emin=-100, emax=100):
+    def __init__(self, h5files, feature, batch_size=32, arrival_time=False, shuffle=True, intensity=50, leakage2_intensity=0.2, emin=-1000, emax=1000):
         self.batch_size = batch_size
         self.h5files = h5files
         self.feature = feature
-        self.indexes = np.array([], dtype=np.int64).reshape(0, 6)
+        self.indexes = np.array([], dtype=np.int64).reshape(0, 8)
         self.shuffle = shuffle
         self.generate_indexes()
         self.arrival_time = arrival_time
@@ -185,7 +196,7 @@ class DataGeneratorR(keras.utils.Sequence):
         self.emax = emax
         self.apply_cuts()
         self.outcomes = 1
-        if feature == 'xy': self.outcomes += 1
+        if feature == 'direction': self.outcomes += 1
         self.on_epoch_end()
 
     def __len__(self):
@@ -213,7 +224,9 @@ class DataGeneratorR(keras.utils.Sequence):
         return x, y
 
     def get_indexes(self):
+
         return self.indexes[0:self.__len__() * self.batch_size]
+
 
     def apply_cuts(self):
         self.indexes = self.indexes[
@@ -222,6 +235,7 @@ class DataGeneratorR(keras.utils.Sequence):
             (self.indexes[:, 5] <= self.emax) &
             (self.indexes[:, 5] >= self.emin)
             ]
+
 
     def chunkit(self, seq, num):
 
@@ -237,22 +251,28 @@ class DataGeneratorR(keras.utils.Sequence):
 
     def worker(self, h5files, positions, i, return_dict):
 
-        idx = np.array([], dtype=np.int64).reshape(0, 6)
+        idx = np.array([], dtype=np.int64).reshape(0, 8)
 
         for l, f in enumerate(h5files):
             h5f = h5py.File(f, 'r')
             intensities = h5f['LST/intensities'][:]
             intensities_width_2 = h5f['LST/intensities_width_2'][:]
-            lst_idx = h5f['LST/LST_event_index'][:]
+            event_idx = h5f['LST/LST_event_index'][:]
             energy_MC = []
-            for id in lst_idx:
+            az = []
+            alt = []
+            for id in event_idx:
                 energy_MC.append(np.log10(h5f['Event_Info/ei_mc_energy'][:][int(id)]))
+                az.append(h5f['Event_Info/ei_az'][:][int(id)])
+                alt.append(h5f['Event_Info/ei_alt'][:][int(id)])
             energy_MC = np.array(energy_MC)
+            alt = np.array(alt)
+            az = np.array(az)
             h5f.close()
 
-            r = np.arange(len(lst_idx))
+            r = np.arange(len(event_idx))
 
-            cp = np.dstack(([positions[l]] * len(r), r, lst_idx, intensities, intensities_width_2, energy_MC)).reshape(-1, 6)
+            cp = np.dstack(([positions[l]] * len(r), r, event_idx, intensities, intensities_width_2, energy_MC, alt, az)).reshape(-1, 8)
 
             idx = np.append(idx, cp, axis=0)
         return_dict[i] = idx
@@ -297,9 +317,23 @@ class DataGeneratorR(keras.utils.Sequence):
         # Initialization
         x = np.empty([self.batch_size, 100, 100, self.arrival_time + 1])
         y = np.empty([self.batch_size, self.outcomes], dtype=float)
+        print("\ny shape: ", y.shape)
 
         if self.feature == 'energy':
-            y = indexes[:,5]
+            y = indexes[:,5] # MC energy
+        elif self.feature == 'direction':
+            #alt_LST, az_LST = 70, 180 # pointing direction of LST (in deg): it's hardcoded, it shouldn't
+            az_LST = 3.141592654  # rad
+            alt_LST = 1.221730476  # rad
+            point = AltAz(alt=alt_LST * u.rad, az=az_LST * u.rad)
+            alt = indexes[:,6] # altitude
+            az = indexes[:,7] # azimuth
+            print("\nalt shape: {}, az shape: {}".format(alt.shape, az.shape))
+            src = AltAz(alt=alt * u.rad, az=az * u.rad)
+            source_direction = src.transform_to(NominalFrame(origin=point))
+            # Source direction in Nominal Frame!
+            y[:,0] = source_direction.delta_alt.deg
+            y[:,1] = source_direction.delta_az.deg
         # Generate data
         for i, row in enumerate(indexes):
 
@@ -307,7 +341,7 @@ class DataGeneratorR(keras.utils.Sequence):
 
             h5f = h5py.File(filename, 'r')
 
-            # Store image
+            # Store images
             x[i, :, :, 0] = h5f['LST/LST_image_charge_interp'][int(row[1])]
             if self.arrival_time:
                 x[i, :, :, 1] = h5f['LST/LST_image_peak_times_interp'][int(row[1])]
@@ -315,10 +349,11 @@ class DataGeneratorR(keras.utils.Sequence):
             # Store features
             #if self.feature == 'energy':
             #    y[i] = np.log10(h5f['Event_Info/ei_mc_energy'][:][int(row[2])])
-            #elif self.feature == 'xy':
-            if self.feature == 'xy':
-                y[i, 0] = h5f['LST/delta_alt'][:][int(row[1])]
-                y[i, 1] = h5f['LST/delta_az'][:][int(row[1])]
+            #elif self.feature == 'direction':
+            #if self.feature == 'direction':
+            #    # delta az, delta alt computation
+            #    y[i, 0] = h5f['LST/delta_alt'][:][int(row[1])]
+            #    y[i, 1] = h5f['LST/delta_az'][:][int(row[1])]
 
             h5f.close()
 
@@ -605,6 +640,7 @@ class DataGeneratorChain(keras.utils.Sequence):
             cp = np.dstack(([positions[l]] * len(r), r, clas, lst_idx, intensities, intensities_width_2)).reshape(-1, 6)
 
             idx = np.append(idx, cp, axis=0)
+
         return_dict[i] = idx
 
     def generate_indexes(self):
