@@ -10,11 +10,13 @@ import sys
 from os import listdir
 from os import mkdir
 from os.path import isfile, join
+from pathlib import Path
 
 import keras
 import keras.backend as K
 #from adabound import AdaBound
 from generators import DataGeneratorR
+from lst_generator import LSTGenerator
 from keras import optimizers
 from keras.callbacks import LearningRateScheduler, TensorBoard
 from keras.callbacks import ModelCheckpoint, EarlyStopping
@@ -23,24 +25,26 @@ from regressor_selector import regressor_selector
 from regressor_test_plots import test_plots
 from regressor_tester import tester
 from regressor_training_plots import train_plots
-
+#from clr import LRFinder, OneCycleLR
+#import keras_one_cycle_clr as ktools
+from keras_contrib.callbacks import CyclicLR
 from utils import get_all_files
 import tensorflow as tf
 
 
-def regressor_training_main(folders, val_folders, model_name, time, epochs, batch_size, opt, learning_rate, lropf, sd, es,
-                            feature, workers, test_dirs, intensity_cut, tb, gpu_fraction, emin, emax):
+def regressor_training_main(folders, val_folders, load_model, model_name, time, epochs, batch_size, opt, learning_rate, lropf, sd, es,
+                            feature, workers, test_dirs, intensity_cut, tb, gpu_fraction=0.5, emin=-100, emax=100, class_model=''):
     ###################################
-    # TensorFlow wizardry for GPU dynamic memory allocation
-    #if gpu_fraction != 0 and gpu_fraction <= 1:
-    config = tf.ConfigProto()
-    # Don't pre-allocate memory; allocate as-needed
-    config.gpu_options.allow_growth = True
-    # Only allow a fraction of the GPU memory to be allocated
-    config.gpu_options.per_process_gpu_memory_fraction = 0.5
-    # Create a session with the above options specified.
-    K.tensorflow_backend.set_session(tf.Session(config=config))
-    ###################################
+    #TensorFlow wizardry for GPU dynamic memory allocation
+    if gpu_fraction != 0 and gpu_fraction <= 1:
+        config = tf.ConfigProto()
+        # Don't pre-allocate memory; allocate as-needed
+        config.gpu_options.allow_growth = True
+        # Only allow a fraction of the GPU memory to be allocated
+        config.gpu_options.per_process_gpu_memory_fraction = gpu_fraction
+        # Create a session with the above options specified.
+        K.tensorflow_backend.set_session(tf.Session(config=config))
+        ###################################
 
     # remove semaphore warnings
     os.environ["PYTHONWARNINGS"] = "ignore:semaphore_tracker:UserWarning"
@@ -52,6 +56,7 @@ def regressor_training_main(folders, val_folders, model_name, time, epochs, batc
     shuffle = True
 
     img_rows, img_cols = 100, 100
+    #img_rows, img_cols = 96, 88
     channels = 1
     if time:
         channels = 2
@@ -103,15 +108,27 @@ def regressor_training_main(folders, val_folders, model_name, time, epochs, batc
 
     # generators
     print('Building training generator...')
-    training_generator = DataGeneratorR(training_files, batch_size=batch_size, arrival_time=time, feature=feature,
-                                        shuffle=shuffle, intensity=intensity_cut,
-                                        leakage2_intensity=leakage2_intensity_cut)
+    training_generator = LSTGenerator(training_files,
+                                      batch_size=batch_size,
+                                      arrival_time=time,
+                                      feature=feature,
+                                      shuffle=shuffle,
+                                      intensity=intensity_cut,
+                                      leakage2_intensity=leakage2_intensity_cut,
+                                      class_model=class_model,
+                                      gammaness=0.55)
 
     if len(val_folders) > 0:
         print('Building validation generator...')
-        validation_generator = DataGeneratorR(validation_files, batch_size=batch_size, arrival_time=time,
-                                              feature=feature, shuffle=False, intensity=intensity_cut,
-                                              leakage2_intensity=leakage2_intensity_cut)
+        validation_generator = LSTGenerator(validation_files,
+                                              batch_size=batch_size,
+                                              arrival_time=time,
+                                              feature=feature,
+                                              shuffle=False,
+                                              intensity=intensity_cut,
+                                              leakage2_intensity=leakage2_intensity_cut,
+                                              class_model=class_model,
+                                              gammaness=0.55)
 
     # class_weight = {0: 1., 1: train_protons/train_gammas}
     # print(class_weight)
@@ -183,14 +200,17 @@ def regressor_training_main(folders, val_folders, model_name, time, epochs, batc
     # loss = 'mean_absolute_percentage_error'
     loss = 'mean_absolute_error'
     # loss = 'mean_squared_error'
-    if feature == 'xy':
+    if feature == 'direction':
         outcomes = 2
-        loss = 'mean_absolute_error'
+        # loss = 'mean_absolute_error'
         # loss = 'mean_squared_error'
 
     # keras.backend.set_image_data_format('channels_first')
-
-    model, hype_print = regressor_selector(model_name, hype_print, channels, img_rows, img_cols, outcomes)
+    if load_model:
+        model = keras.models.load_model(model_name)
+        model_name = Path(model_name).name
+    else:
+        model, hype_print = regressor_selector(model_name, hype_print, channels, img_rows, img_cols, feature, outcomes)
 
     hype_print += '\n' + '========================================================================================='
 
@@ -282,38 +302,80 @@ def regressor_training_main(folders, val_folders, model_name, time, epochs, batc
         callbacks.append(early_stopping)
 
     if tb:
-        tb_path = './tb/'
+        tb_path = os.path.join(root_dir, 'tb')
         if not os.path.exists(tb_path):
             os.mkdir(tb_path)
-        tb_path = os.path.join(tb_path, root_dir)
-        os.mkdir(tb_path)
+        #tb_path = os.path.join(tb_path, root_dir)
+        # os.mkdir(tb_path)
         tensorboard = TensorBoard(log_dir=tb_path)
         callbacks.append(tensorboard)
+
+    '''
+    findlr=False
+    if findlr:
+        lr_callback = LRFinder(len(training_generator)*batch_size, batch_size,
+                               1e-05, 1e01,
+                               # validation_data=(X_val, Y_val),
+                               lr_scale='exp', save_dir=join(root_dir,'clr'))
+        callbacks.append(lr_callback)
+    
+    oclr=True #CORREGGI STA MERDA OPPURE CANCELLA
+    if oclr:
+        lr_manager = OneCycleLR(
+            max_lr=0.001,
+            maximum_momentum=0.9,
+            minimum_momentum=None,
+            verbose=True
+        )
+        callbacks.append(lr_manager)
+    
+    oclr=True
+    if oclr:
+        ocp = ktools.one_cycle.OneCycle(
+            lr_range=(1e-5, 1e-3),
+            momentum_range=(0.95, 0.85),
+            reset_on_train_begin=True,
+            record_frq=10
+        )
+        callbacks.append(ocp)
+    '''
+    clr=True
+    if clr:
+        cyclelr = CyclicLR(
+            base_lr=1e-5,
+            max_lr=7e-4,
+            step_size=3*len(training_generator)
+        )
+        callbacks.append(cyclelr)
 
     model.compile(optimizer=optimizer, loss=loss)
 
     if len(val_folders) > 0:
-        model.fit_generator(generator=training_generator,
-                            validation_data=validation_generator,
-                            steps_per_epoch=len(training_generator),
-                            validation_steps=len(validation_generator),
-                            epochs=epochs,
-                            verbose=1,
-                            max_queue_size=10,
-                            use_multiprocessing=True,
-                            workers=workers,
-                            shuffle=False,
-                            callbacks=callbacks)
+        model.fit(
+            x=training_generator,
+            validation_data=validation_generator,
+            steps_per_epoch=len(training_generator),
+            validation_steps=len(validation_generator),
+            epochs=epochs,
+            verbose=1,
+            max_queue_size=10,
+            use_multiprocessing=True,
+            workers=workers,
+            shuffle=False,
+            callbacks=callbacks
+        )
     else:
-        model.fit_generator(generator=training_generator,
-                            steps_per_epoch=len(training_generator),
-                            epochs=epochs,
-                            verbose=1,
-                            max_queue_size=10,
-                            use_multiprocessing=True,
-                            workers=workers,
-                            shuffle=False,
-                            callbacks=callbacks)
+        model.fit(
+            x=training_generator,
+            steps_per_epoch=len(training_generator),
+            epochs=epochs,
+            verbose=1,
+            max_queue_size=10,
+            use_multiprocessing=True,
+            workers=workers,
+            shuffle=False,
+            callbacks=callbacks
+        )
 
     # mp.set_start_method('fork')
 
@@ -371,7 +433,9 @@ if __name__ == "__main__":
     parser.add_argument(
         '--test_dirs', type=str, default='', nargs='+', help='Folder that contain .h5 files test data.', required=False)
     parser.add_argument(
-        '-m', '--model', type=str, default='', help='Model type.', required=True)
+        '--load_model', help='Select option in order to load a previously trained model.', action='store_true')
+    parser.add_argument(
+        '-m', '--model', type=str, default='', help='Model type. If load_model is activated: path to model to load.', required=True)
     parser.add_argument(
         '-e', '--epochs', type=int, default=10, help='Number of epochs.', required=True)
     parser.add_argument(
@@ -398,6 +462,8 @@ if __name__ == "__main__":
     parser.add_argument(
         '-f', '--feature', type=str, default='energy', help='Feature to train/predict.', required=True)
     parser.add_argument(
+        '--class_model', type=str, default='', help='Classification model to evaluate gammaness.', required=False)
+    parser.add_argument(
         '--lrop', help='Reduce learning rate on plateau.', action="store_true")
     parser.add_argument(
         '--sd', help='Use step decay.', action="store_true")
@@ -409,8 +475,10 @@ if __name__ == "__main__":
     FLAGS, unparsed = parser.parse_known_args()
 
     # cmd line parameters
+
     folders = FLAGS.dirs
     val_folders = FLAGS.val_dirs
+    load_model=FLAGS.load_model
     model_name = FLAGS.model
     time = FLAGS.time
     intens=FLAGS.intensity_cut
@@ -429,6 +497,29 @@ if __name__ == "__main__":
     feature = FLAGS.feature
     emin = FLAGS.emin
     emax = FLAGS.emax
+    class_model = FLAGS.class_model
 
-    regressor_training_main(folders, val_folders, model_name, time, epochs, batch_size, opt, lr, lropf, sd, es,
-                            feature, workers, test_dirs, intens, tb, gpufraction, emin, emax)
+    regressor_training_main(
+        folders=folders,
+        val_folders=val_folders,
+        load_model=load_model,
+        model_name=model_name,
+        time=time,
+        epochs=epochs,
+        batch_size=batch_size,
+        opt=opt,
+        learning_rate=lr,
+        lropf=lropf,
+        sd=sd,
+        es=es,
+        feature=feature,
+        workers=workers,
+        test_dirs=test_dirs,
+        intensity_cut=intens,
+        tb=tb,
+        gpu_fraction=gpufraction,
+        emin=emin,
+        emax=emax,
+        class_model=class_model
+    )
+

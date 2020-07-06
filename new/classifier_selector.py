@@ -8,13 +8,28 @@ from keras.utils.data_utils import get_file
 
 from classifiers import ClassifierV1, ClassifierV2, ClassifierV3, ResNet, ResNetA, ResNetB, ResNetC, ResNetD, ResNetE, \
     ResNetF, ResNetG, ResNetH, DenseNet, ResNetFSE, ResNet18, ResNet34, ResNet50, ResNet101, ResNet152, NASNetLarge, \
-    NASNetA, ResNetFSEA, BaseLine, ResNeXt, VGG16, VGG16N, VGG19, ResNetFSEFixed, DenseNetSE
+    NASNetA, ResNetFSEA, BaseLine, ResNeXt, VGG16, VGG16N, VGG19, ResNetFSEFixed, DenseNetSE, LST_VGG16
 
 DENSENET_169_WEIGHTS_PATH_NO_TOP = r'https://github.com/titu1994/DenseNet/releases/download/v3.0/DenseNet-BC-169-32-no-top.h5'
 
 
 def select_classifier(model_name, hype_print, channels, img_rows, img_cols):
-    if model_name == 'ClassifierV1':
+    if model_name == 'LST_VGG16':
+        dropout_rate = 0.5
+        wd = 1e-5
+        net = LST_VGG16(
+            channels=channels,
+            img_rows=img_rows,
+            img_cols=img_cols,
+            dropout_rate=dropout_rate,
+            weight_decay=wd
+        )
+        model = net.get_model()
+        params = model.count_params()
+        hype_print += '\n' + 'Model params: ' + str(params)
+        hype_print += '\n' + 'dropout_rate: ' + str(dropout_rate)
+        hype_print += '\n' + 'weight_decay: ' + str(wd)
+    elif model_name == 'ClassifierV1':
         class_v1 = ClassifierV1(channels, img_rows, img_cols)
         model = class_v1.get_model()
         params = model.count_params()

@@ -6,7 +6,7 @@ import keras_contrib.applications
 from keras import backend as K
 from keras import layers
 from keras import models
-from keras.layers import Dropout, Flatten, Dense, Conv2D, MaxPooling2D, AveragePooling2D, BatchNormalization, \
+from keras.layers import Dropout, Flatten, Dense, Conv2D, MaxPooling2D, MaxPool2D, AveragePooling2D, BatchNormalization, \
     Activation, Input, Reshape, multiply, GlobalAveragePooling2D, Permute
 from keras.models import Model
 from keras.models import Sequential
@@ -16,6 +16,73 @@ import densenetlst
 # import resnext
 # import sedensenetlst
 
+class LST_VGG16:
+
+    def __init__(
+            self,
+            channels,
+            img_rows,
+            img_cols,
+            outcomes=1,
+            last_activation='sigmoid',
+            dropout_rate=0.5,
+            weight_decay=1e-4
+    ):
+        self.outcomes = outcomes
+        self.channels = channels
+        self.img_rows = img_rows
+        self.img_cols = img_cols
+        self.model = Sequential()
+        self.dropout = dropout_rate
+        self.wd = weight_decay
+        self.last = last_activation
+        self.init = 'he_uniform'
+
+    def get_model(self):
+
+        self.model.add(BatchNormalization(input_shape=(self.img_rows, self.img_cols, self.channels)))
+        self.model.add(Conv2D(filters=64, kernel_size=(3, 3),
+                              padding="same", activation="relu", kernel_initializer=self.init,
+                              kernel_regularizer=l2(self.wd)))
+        #self.model.add(Conv2D(input_shape=(self.img_rows, self.img_cols, self.channels), filters=64, kernel_size=(3, 3), padding="same", activation="relu", kernel_initializer=self.init, kernel_regularizer=l2(self.wd)))
+        self.model.add(Conv2D(filters=64, kernel_size=(3, 3), padding="same", activation="relu", kernel_initializer=self.init, kernel_regularizer=l2(self.wd)))
+        self.model.add(MaxPool2D(pool_size=(2, 2), strides=(2, 2)))
+        #self.model.add(Dropout(self.dropout))
+
+        self.model.add(Conv2D(filters=128, kernel_size=(3, 3), padding="same", activation="relu", kernel_initializer=self.init, kernel_regularizer=l2(self.wd)))
+        self.model.add(Conv2D(filters=128, kernel_size=(3, 3), padding="same", activation="relu", kernel_initializer=self.init, kernel_regularizer=l2(self.wd)))
+        self.model.add(MaxPool2D(pool_size=(2, 2), strides=(2, 2)))
+        #self.model.add(Dropout(self.dropout))
+
+        self.model.add(Conv2D(filters=256, kernel_size=(3, 3), padding="same", activation="relu", kernel_initializer=self.init, kernel_regularizer=l2(self.wd)))
+        self.model.add(Conv2D(filters=256, kernel_size=(3, 3), padding="same", activation="relu", kernel_initializer=self.init, kernel_regularizer=l2(self.wd)))
+        self.model.add(Conv2D(filters=256, kernel_size=(3, 3), padding="same", activation="relu", kernel_initializer=self.init, kernel_regularizer=l2(self.wd)))
+        self.model.add(MaxPool2D(pool_size=(2, 2), strides=(2, 2)))
+        self.model.add(Dropout(self.dropout))
+
+        self.model.add(Conv2D(filters=512, kernel_size=(3, 3), padding="same", activation="relu", kernel_initializer=self.init, kernel_regularizer=l2(self.wd)))
+        self.model.add(Conv2D(filters=512, kernel_size=(3, 3), padding="same", activation="relu", kernel_initializer=self.init, kernel_regularizer=l2(self.wd)))
+        self.model.add(Conv2D(filters=512, kernel_size=(3, 3), padding="same", activation="relu", kernel_initializer=self.init, kernel_regularizer=l2(self.wd)))
+        self.model.add(MaxPool2D(pool_size=(2, 2), strides=(2, 2)))
+        self.model.add(Dropout(self.dropout))
+
+        self.model.add(Conv2D(filters=512, kernel_size=(3, 3), padding="same", activation="relu", kernel_initializer=self.init, kernel_regularizer=l2(self.wd)))
+        self.model.add(Conv2D(filters=512, kernel_size=(3, 3), padding="same", activation="relu", kernel_initializer=self.init, kernel_regularizer=l2(self.wd)))
+        self.model.add(Conv2D(filters=512, kernel_size=(3, 3), padding="same", activation="relu", kernel_initializer=self.init, kernel_regularizer=l2(self.wd)))
+        self.model.add(MaxPool2D(pool_size=(2, 2), strides=(2, 2)))
+        self.model.add(Dropout(self.dropout))
+
+        self.model.add(Flatten())
+        #self.model.add(Dense(units=4096, activation="relu", kernel_initializer=self.init, kernel_regularizer=l2(self.wd)))
+        #self.model.add(Dropout(self.dropout))
+        #self.model.add(Dense(units=4096, activation="relu", kernel_initializer=self.init, kernel_regularizer=l2(self.wd)))
+        #self.model.add(Dropout(self.dropout))
+        self.model.add(Dense(units=self.outcomes, name='gammaness', activation=self.last, kernel_initializer=self.init))
+
+        return self.model
+
+###############################################################################################
+############### NICOLA + KERAS.APPLICATIONS #################################
 
 class ClassifierV1:
 
@@ -864,7 +931,7 @@ class ResNetF:
                          kernel_size=3,
                          strides=1,
                          activation='relu',
-                         batch_normalization=True,
+                         batch_normalization=False,
                          conv_first=True):
             """2D Convolution-Batch Normalization-Activation stack builder
             # Arguments
@@ -1443,7 +1510,7 @@ class ResNetFSE:
                          kernel_size=3,
                          strides=1,
                          activation='relu',
-                         batch_normalization=True,
+                         batch_normalization=False,
                          conv_first=True):
             """2D Convolution-Batch Normalization-Activation stack builder
             # Arguments
@@ -2311,7 +2378,7 @@ class VGG16:
     def get_model(self):
         input_shape = (self.img_rows, self.img_cols, self.channels)
         input_img = Input(input_shape, name='input_img')
-        base = keras.applications.vgg16.VGG16(include_top=False, weights=None, input_tensor=input_img, pooling='max')
+        base = keras.applications.vgg16.VGG16(include_top=True, weights=None, input_tensor=input_img, pooling='max')
         x = base.layers[-1].output
         x = Dense(1, name='gammaness', activation='sigmoid')(x)
         model = Model(inputs=input_img, output=x, name="vgg16")

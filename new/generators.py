@@ -7,6 +7,7 @@ import os
 import h5py
 import keras
 import numpy as np
+import pandas as pd
 
 from ctapipe.image import hillas_parameters, tailcuts_clean, leakage
 from ctapipe.image.timing_parameters import timing_parameters
@@ -14,7 +15,6 @@ from ctapipe.image.cleaning import number_of_islands
 from astropy.coordinates import AltAz
 from lstchain.reco.utils import sky_to_camera #, disp_parameters
 from ctapipe.instrument import CameraGeometry
-from astropy import units as u
 from astropy import units as u
 from ctapipe.coordinates import NominalFrame, AltAz
 
@@ -160,6 +160,7 @@ class DataGeneratorC(keras.utils.Sequence):
         # print('__data_generation', indexes)
 
         # Generate data
+
         for i, row in enumerate(indexes):
 
             # print(row[0])
@@ -186,7 +187,8 @@ class DataGeneratorR(keras.utils.Sequence):
         self.batch_size = batch_size
         self.h5files = h5files
         self.feature = feature
-        self.indexes = np.array([], dtype=np.int64).reshape(0, 8)
+        self.indexes = pd.DataFrame()
+        #self.indexes = np.array([], dtype=np.int64).reshape(0, 8)
         self.shuffle = shuffle
         self.generate_indexes()
         self.arrival_time = arrival_time
@@ -223,19 +225,35 @@ class DataGeneratorR(keras.utils.Sequence):
 
         return x, y
 
-    def get_indexes(self):
+    def get_ordered_info(
+            self,
+            emin=None,
+            emax=None,
+            altmin=None,
+            altmax=None,
+            azmin=None,
+            azmax=None,
+            imin=None,
+            imax=None,
+            lkg=None
+    ):
+        # perché esplicitare? Forse perché alcuni elementi vengono troncati dall'approssimazione?
+        # return self.indexes[0:self.__len__() * self.batch_size]
 
-        return self.indexes[0:self.__len__() * self.batch_size]
-
+        # Così lo faccio io:
+        return self.indexes
 
     def apply_cuts(self):
         self.indexes = self.indexes[
-            (self.indexes[:, 3] >= self.intensity) &
-            (self.indexes[:, 4] <= self.leakage2_intensity) &
-            (self.indexes[:, 5] <= self.emax) &
-            (self.indexes[:, 5] >= self.emin)
-            ]
-
+            (self.indexes['intensity'] >= self.intensity) &
+            (self.indexes['leakage2'] <= self.leakage2_intensity) &
+            (self.indexes['energy_true'] <= self.emax) &
+            (self.indexes['energy_true'] >= self.emin) #&
+            #(self.indexes['alt'] >= self.altmin) &
+            #(self.indexes['alt'] <= self.altmax) &
+            #(self.indexes['az'] >= self.azmin) &
+            #(self.indexes['az'] <= self.azmax)
+        ]
 
     def chunkit(self, seq, num):
 
@@ -251,31 +269,32 @@ class DataGeneratorR(keras.utils.Sequence):
 
     def worker(self, h5files, positions, i, return_dict):
 
-        idx = np.array([], dtype=np.int64).reshape(0, 8)
-
+        #idx = np.array([], dtype=np.int64).reshape(0, 8)
+        df = pd.DataFrame()
         for l, f in enumerate(h5files):
             h5f = h5py.File(f, 'r')
-            intensities = h5f['LST/intensities'][:]
-            intensities_width_2 = h5f['LST/intensities_width_2'][:]
-            event_idx = h5f['LST/LST_event_index'][:]
+            idx = pd.DataFrame()
+            idx['event_index'] = h5f['LST/LST_event_index'][:]
+            idx['file_index'] = [positions[l]]*len(idx['event_index'])
+            idx['image_index'] = np.arange(len(idx['event_index']))
             energy_MC = []
             az = []
             alt = []
-            for id in event_idx:
+            for id in idx['event_index']:
                 energy_MC.append(np.log10(h5f['Event_Info/ei_mc_energy'][:][int(id)]))
                 az.append(h5f['Event_Info/ei_az'][:][int(id)])
                 alt.append(h5f['Event_Info/ei_alt'][:][int(id)])
-            energy_MC = np.array(energy_MC)
-            alt = np.array(alt)
-            az = np.array(az)
+            idx['energy_true'] = np.array(energy_MC)
+            idx['alt'] = np.array(alt)
+            idx['az'] = np.array(az)
+            idx['intensity'] = h5f['LST/intensities'][:]
+            idx['leakage2'] = h5f['LST/intensities_width_2'][:]
             h5f.close()
+            #idx['index'] = np.arange(len(idx['event_index']))
+            #cp = np.dstack(([positions[l]] * len(r), r, event_idx, intensities, intensities_width_2, energy_MC, alt, az)).reshape(-1, 8)
 
-            r = np.arange(len(event_idx))
-
-            cp = np.dstack(([positions[l]] * len(r), r, event_idx, intensities, intensities_width_2, energy_MC, alt, az)).reshape(-1, 8)
-
-            idx = np.append(idx, cp, axis=0)
-        return_dict[i] = idx
+            df = df.append(idx)
+        return_dict[i] = df
 
     def generate_indexes(self):
 
@@ -305,12 +324,32 @@ class DataGeneratorR(keras.utils.Sequence):
             p.join()
 
         for key, value in return_dict.items():
-            self.indexes = np.append(self.indexes, value, axis=0)
+            self.indexes = self.indexes.append(value, ignore_index=True)
 
     def on_epoch_end(self):
         'Updates indexes after each epoch'
         if self.shuffle:
             np.random.shuffle(self.indexes)  # shuffle all the pairs (if, ii) - (index file, index image in the file)
+
+    def get_direction_nominal_frame(self, indexes):
+
+        az_LST = 3.141592654  # rad
+        alt_LST = 1.221730476  # rad
+
+        point = AltAz(
+            alt=alt_LST * u.rad,
+            az=az_LST * u.rad
+        )
+        # alt = indexes['alt'] # altitude
+        # az = indexes['az'] # azimuth
+        # print("\nalt shape: {}, az shape: {}".format(indexes['alt'].shape, indexes['az'].shape))
+        src = AltAz(
+            alt=indexes['alt'] * u.rad,
+            az=indexes['az'] * u.rad
+        )
+        source_direction = src.transform_to(NominalFrame(origin=point))
+
+        return source_direction.delta_alt.deg, source_direction.delta_az.deg
 
     def __data_generation(self, indexes):
         'Generates data containing batch_size samples'
@@ -320,31 +359,25 @@ class DataGeneratorR(keras.utils.Sequence):
         print("\ny shape: ", y.shape)
 
         if self.feature == 'energy':
-            y = indexes[:,5] # MC energy
+            y = indexes['energy_true'] # MC energy
         elif self.feature == 'direction':
             #alt_LST, az_LST = 70, 180 # pointing direction of LST (in deg): it's hardcoded, it shouldn't
-            az_LST = 3.141592654  # rad
-            alt_LST = 1.221730476  # rad
-            point = AltAz(alt=alt_LST * u.rad, az=az_LST * u.rad)
-            alt = indexes[:,6] # altitude
-            az = indexes[:,7] # azimuth
-            print("\nalt shape: {}, az shape: {}".format(alt.shape, az.shape))
-            src = AltAz(alt=alt * u.rad, az=az * u.rad)
-            source_direction = src.transform_to(NominalFrame(origin=point))
-            # Source direction in Nominal Frame!
-            y[:,0] = source_direction.delta_alt.deg
-            y[:,1] = source_direction.delta_az.deg
-        # Generate data
-        for i, row in enumerate(indexes):
 
-            filename = self.h5files[int(row[0])]
+            # Source direction in Nominal Frame!
+            delta_alt, delta_az = self.get_direction_nominal_frame(indexes)
+            y[:, 0] = delta_alt
+            y[:, 1] = delta_az
+        # Generate data
+        for i, row in indexes.iterrows():
+
+            filename = self.h5files[int(row['file_index'])]
 
             h5f = h5py.File(filename, 'r')
 
             # Store images
-            x[i, :, :, 0] = h5f['LST/LST_image_charge_interp'][int(row[1])]
+            x[i, :, :, 0] = h5f['LST/LST_image_charge_interp'][int(row['image_index'])]
             if self.arrival_time:
-                x[i, :, :, 1] = h5f['LST/LST_image_peak_times_interp'][int(row[1])]
+                x[i, :, :, 1] = h5f['LST/LST_image_peak_times_interp'][int(row['image_index'])]
 
             # Store features
             #if self.feature == 'energy':
@@ -360,6 +393,7 @@ class DataGeneratorR(keras.utils.Sequence):
         # x = x.reshape(x.shape[0], 1, 100, 100)
 
         return x, y
+
 
 
 # generator for the Random Forest

@@ -13,6 +13,7 @@ def main(input, output, emin, emax, log_energy, its, lkg):
     title = "Gamma"
     for i in trange(generator.__len__()):
         images, energies = generator.__getitem__(i)
+        #print("Images shape: ", images.shape)
         save_interp_images(charges=images, title=title, energies=energies, start=i, outputdir=output)
     print("Finished!")
 
@@ -24,9 +25,9 @@ if __name__ == "__main__":
     parser.add_argument(
         '-o', '--outputdir', type=str, default='SameAsInput', help='Folder where to store output plots.', required=False)
     parser.add_argument(
-        '--emin', type=float, default=-5, help='Lower energy threshold (in log10 if --log activated).', required=False)
+        '--emin', type=float, default=-100, help='Lower energy threshold (in log10 if --log activated).', required=False)
     parser.add_argument(
-        '--emax', type=float, default=5, help='Upper energy threshold (in log10 if --log activated).', required=False)
+        '--emax', type=float, default=100, help='Upper energy threshold (in log10 if --log activated).', required=False)
     parser.add_argument(
         '--log', help='Activate if you set the energy threshold options above in log10 scale.', action="store_true")
     parser.add_argument(

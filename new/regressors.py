@@ -13,9 +13,326 @@ from keras.regularizers import l2
 import densenetlst
 # import resnext
 
+#########################################################################################################################
+#######################################       CNNs FROM KERAS.APPLICATIONS        #######################################
+#########################################################################################################################
+
+includetop = False
+
+class Xception:
+
+    def __init__(self, outcomes, channels, img_rows, img_cols):
+        self.channels = channels
+        self.img_rows = img_rows
+        self.img_cols = img_cols
+        self.outcomes = outcomes
+
+    def get_model(self):
+        input_shape = (self.img_rows, self.img_cols, self.channels)
+        input_img = Input(input_shape, name='input_img')
+        base = keras.applications.Xception(include_top=includetop, weights=None, input_tensor=input_img, pooling='max')
+        x = base.layers[-1].output
+        x = Dense(self.outcomes, name='gammaness', activation='linear')(x)
+        model = Model(inputs=input_img, output=x, name="InceptionV3")
+        return model
 
 
+class InceptionV3:
 
+    def __init__(self, outcomes, channels, img_rows, img_cols):
+        self.channels = channels
+        self.img_rows = img_rows
+        self.img_cols = img_cols
+        self.outcomes = outcomes
+
+    def get_model(self):
+        input_shape = (self.img_rows, self.img_cols, self.channels)
+        input_img = Input(input_shape, name='input_img')
+        base = keras.applications.InceptionV3(include_top=includetop, weights=None, input_tensor=input_img, pooling='max')
+        x = base.layers[-1].output
+        x = Dense(self.outcomes, name='gammaness', activation='linear')(x)
+        model = Model(inputs=input_img, output=x, name="InceptionV3")
+        return model
+
+
+class InceptionResNetV2:
+
+    def __init__(self, outcomes, channels, img_rows, img_cols):
+        self.channels = channels
+        self.img_rows = img_rows
+        self.img_cols = img_cols
+        self.outcomes = outcomes
+
+    def get_model(self):
+        input_shape = (self.img_rows, self.img_cols, self.channels)
+        input_img = Input(input_shape, name='input_img')
+        base = keras.applications.InceptionResNetV2(include_top=includetop, weights=None, input_tensor=input_img, pooling='max')
+        x = base.layers[-1].output
+        x = Dense(self.outcomes, name='gammaness', activation='linear')(x)
+        model = Model(inputs=input_img, output=x, name="InceptionResNetV2")
+        return model
+
+
+class NASNetLarge:
+
+    def __init__(self, outcomes, channels, img_rows, img_cols):
+        self.channels = channels
+        self.img_rows = img_rows
+        self.img_cols = img_cols
+        self.outcomes = outcomes
+
+    def get_model(self):
+        input_shape = (self.img_rows, self.img_cols, self.channels)
+        input_img = Input(input_shape, name='input_img')
+        base = keras.applications.NASNetLarge(include_top=includetop, weights=None, input_tensor=input_img, pooling='max')
+        x = base.layers[-1].output
+        x = Dense(self.outcomes, name='gammaness', activation='linear')(x)
+        model = Model(inputs=input_img, output=x, name="NASNetLarge")
+        return model
+
+
+class NASNetMobile:
+
+    def __init__(self, outcomes, channels, img_rows, img_cols):
+        self.channels = channels
+        self.img_rows = img_rows
+        self.img_cols = img_cols
+        self.outcomes = outcomes
+
+    def get_model(self):
+        input_shape = (self.img_rows, self.img_cols, self.channels)
+        input_img = Input(input_shape, name='input_img')
+        base = keras.applications.NASNetMobile(include_top=includetop, weights=None, input_tensor=input_img, pooling='max')
+        x = base.layers[-1].output
+        x = Dense(self.outcomes, name='gammaness', activation='linear')(x)
+        model = Model(inputs=input_img, output=x, name="NasNetMobile")
+        return model
+
+
+class ResNet50:
+
+    def __init__(self, outcomes, channels, img_rows, img_cols):
+        self.channels = channels
+        self.img_rows = img_rows
+        self.img_cols = img_cols
+        self.outcomes = outcomes
+
+    def get_model(self):
+        input_shape = (self.img_rows, self.img_cols, self.channels)
+        input_img = Input(input_shape, name='input_img')
+        base = keras.applications.ResNet50(include_top=includetop, weights=None, input_tensor=input_img, pooling='max')
+        x = base.layers[-1].output
+        x = Dense(self.outcomes, name='gammaness', activation='linear')(x)
+        model = Model(inputs=input_img, output=x, name="ResNet50")
+        return model
+
+
+class ResNet101:
+
+    def __init__(self, outcomes, channels, img_rows, img_cols):
+        self.channels = channels
+        self.img_rows = img_rows
+        self.img_cols = img_cols
+        self.outcomes = outcomes
+
+    def get_model(self):
+        input_shape = (self.img_rows, self.img_cols, self.channels)
+        input_img = Input(input_shape, name='input_img')
+        base = keras.applications.ResNet101(include_top=includetop, weights=None, input_tensor=input_img, pooling='max')
+        x = base.layers[-1].output
+        x = Dense(self.outcomes, name='gammaness', activation='linear')(x)
+        model = Model(inputs=input_img, output=x, name="ResNet101")
+        return model
+
+
+class ResNet152:
+
+    def __init__(self, outcomes, channels, img_rows, img_cols):
+        self.channels = channels
+        self.img_rows = img_rows
+        self.img_cols = img_cols
+        self.outcomes = outcomes
+
+    def get_model(self):
+        input_shape = (self.img_rows, self.img_cols, self.channels)
+        input_img = Input(input_shape, name='input_img')
+        base = keras.applications.ResNet152(include_top=includetop, weights=None, input_tensor=input_img, pooling='max')
+        x = base.layers[-1].output
+        x = Dense(self.outcomes, name='gammaness', activation='linear')(x)
+        model = Model(inputs=input_img, output=x, name="ResNet152")
+        return model
+
+
+class ResNet50V2:
+
+    def __init__(self, outcomes, channels, img_rows, img_cols):
+        self.channels = channels
+        self.img_rows = img_rows
+        self.img_cols = img_cols
+        self.outcomes = outcomes
+
+    def get_model(self):
+        input_shape = (self.img_rows, self.img_cols, self.channels)
+        input_img = Input(input_shape, name='input_img')
+        base = keras.applications.ResNet50V2(include_top=includetop, weights=None, input_tensor=input_img, pooling='max')
+        x = base.layers[-1].output
+        x = Dense(self.outcomes, name='gammaness', activation='linear')(x)
+        model = Model(inputs=input_img, output=x, name="ResNet50V2")
+        return model
+
+
+class ResNet101V2:
+
+    def __init__(self, outcomes, channels, img_rows, img_cols):
+        self.channels = channels
+        self.img_rows = img_rows
+        self.img_cols = img_cols
+        self.outcomes = outcomes
+
+    def get_model(self):
+        input_shape = (self.img_rows, self.img_cols, self.channels)
+        input_img = Input(input_shape, name='input_img')
+        base = keras.applications.ResNet101V2(include_top=includetop, weights=None, input_tensor=input_img, pooling='max')
+        x = base.layers[-1].output
+        x = Dense(self.outcomes, name='gammaness', activation='linear')(x)
+        model = Model(inputs=input_img, output=x, name="ResNet101V2")
+        return model
+
+
+class ResNet152V2:
+
+    def __init__(self, outcomes, channels, img_rows, img_cols):
+        self.channels = channels
+        self.img_rows = img_rows
+        self.img_cols = img_cols
+        self.outcomes = outcomes
+
+    def get_model(self):
+        input_shape = (self.img_rows, self.img_cols, self.channels)
+        input_img = Input(input_shape, name='input_img')
+        base = keras.applications.ResNet152V2(include_top=includetop, weights=None, input_tensor=input_img, pooling='max')
+        x = base.layers[-1].output
+        x = Dense(self.outcomes, name='gammaness', activation='linear')(x)
+        model = Model(inputs=input_img, output=x, name="ResNet152V2")
+        return model
+
+
+class VGG16:
+
+    def __init__(self, outcomes, channels, img_rows, img_cols):
+        self.channels = channels
+        self.img_rows = img_rows
+        self.img_cols = img_cols
+        self.outcomes = outcomes
+    def get_model(self):
+        input_shape = (self.img_rows, self.img_cols, self.channels)
+        input_img = Input(input_shape, name='input_img')
+        base = keras.applications.VGG16(include_top=includetop, weights=None, input_tensor=input_img, pooling='max')
+        x = base.layers[-1].output
+        x = Dense(self.outcomes, name='regression', activation='linear')(x)
+        model = Model(inputs=input_img, output=x, name="VGG16")
+
+        return model
+
+
+class VGG19:
+
+    def __init__(self, outcomes, channels, img_rows, img_cols):
+        self.channels = channels
+        self.img_rows = img_rows
+        self.img_cols = img_cols
+        self.outcomes = outcomes
+    def get_model(self):
+        input_shape = (self.img_rows, self.img_cols, self.channels)
+        input_img = Input(input_shape, name='input_img')
+        base = keras.applications.VGG19(include_top=includetop, weights=None, input_tensor=input_img, pooling='max')
+        x = base.layers[-1].output
+        #x = Flatten(name='flatten')(x)
+        x = Dense(1000, activation='linear', name='fc1', kernel_initializer='he_normal')(x)
+        x = Dense(self.outcomes, name='regression', activation='linear', kernel_initializer='he_normal')(x)
+        model = Model(inputs=input_img, output=x, name="VGG19")
+
+        return model
+
+
+class DenseNet121:
+
+    def __init__(self, outcomes, channels, img_rows, img_cols):
+        self.channels = channels
+        self.img_rows = img_rows
+        self.img_cols = img_cols
+        self.outcomes = outcomes
+
+    def get_model(self):
+        input_shape = (self.img_rows, self.img_cols, self.channels)
+        input_img = Input(input_shape, name='input_img')
+        base = keras.applications.densenet.DenseNet121(include_top=includetop, weights=None, input_tensor=input_img, pooling='max')
+        #base = keras.applications.resnet50.ResNet50(include_top=False, weights=None, input_tensor=input_img, pooling='max')
+        x = base.layers[-1].output
+        x = Dense(self.outcomes, name='gammaness', activation='linear')(x)
+        model = Model(inputs=input_img, output=x, name="DenseNet121")
+        return model
+
+
+class DenseNet169:
+
+    def __init__(self, outcomes, channels, img_rows, img_cols):
+        self.channels = channels
+        self.img_rows = img_rows
+        self.img_cols = img_cols
+        self.outcomes = outcomes
+
+    def get_model(self):
+        input_shape = (self.img_rows, self.img_cols, self.channels)
+        input_img = Input(input_shape, name='input_img')
+        base = keras.applications.DenseNet169(include_top=includetop, weights=None, input_tensor=input_img, pooling='max')
+        x = base.layers[-1].output
+        x = Dense(self.outcomes, name='gammaness', activation='linear')(x)
+        model = Model(inputs=input_img, output=x, name="DenseNet169")
+        return model
+
+
+class DenseNet201:
+
+    def __init__(self, outcomes, channels, img_rows, img_cols):
+        self.channels = channels
+        self.img_rows = img_rows
+        self.img_cols = img_cols
+        self.outcomes = outcomes
+
+    def get_model(self):
+        input_shape = (self.img_rows, self.img_cols, self.channels)
+        input_img = Input(input_shape, name='input_img')
+        base = keras.applications.DenseNet201(include_top=includetop, weights=None, input_tensor=input_img, pooling='max')
+        x = base.layers[-1].output
+        x = Dense(self.outcomes, name='gammaness', activation='linear')(x)
+        model = Model(inputs=input_img, output=x, name="DenseNet201")
+        return model
+
+
+#########################################################################################################################
+#######################################               CUSTOM CNNS                 #######################################
+#########################################################################################################################
+
+
+'''
+class Custom21CL:
+
+    def __init__(self, outcomes, channels, img_rows, img_cols, wd):
+        self.channels = channels
+        self.img_rows = img_rows
+        self.img_cols = img_cols
+        self.outcomes = outcomes
+        self.wd = wd
+    def get_model(self):
+
+        def conv_21():
+
+        return model
+'''
+
+
+# Nicola Marinello's CNNs:
 
 class ResNetF:
 
@@ -36,7 +353,7 @@ class ResNetF:
                          kernel_size=3,
                          strides=1,
                          activation='relu',
-                         batch_normalization=True,
+                         batch_normalization=False,
                          conv_first=True):
             """2D Convolution-Batch Normalization-Activation stack builder
             # Arguments
@@ -82,7 +399,8 @@ class ResNetF:
         input_shape = (self.img_rows, self.img_cols, self.channels)
 
         inputs = Input(shape=input_shape)  # output (1, 100, 100)
-        y = resnet_layer(inputs=inputs, num_filters=16, strides=1)  # output (16, 100, 100)
+        y = BatchNormalization()(inputs)
+        y = resnet_layer(inputs=y, num_filters=16, strides=1)  # output (16, 100, 100)
 
         # stack 0
         x = resnet_layer(inputs=y, num_filters=16, strides=1)
@@ -182,7 +500,7 @@ class ResNetFSE:
                          kernel_size=3,
                          strides=1,
                          activation='relu',
-                         batch_normalization=True,
+                         batch_normalization=False,
                          conv_first=True):
             """2D Convolution-Batch Normalization-Activation stack builder
             # Arguments
@@ -253,7 +571,8 @@ class ResNetFSE:
         input_shape = (self.img_rows, self.img_cols, self.channels)
 
         inputs = Input(shape=input_shape)  # output (1, 100, 100)
-        y = resnet_layer(inputs=inputs, num_filters=16, strides=1)  # output (16, 100, 100)
+        y = BatchNormalization()(inputs)
+        y = resnet_layer(inputs=y, num_filters=16, strides=1)  # output (16, 100, 100)
 
         # stack 0
         x = resnet_layer(inputs=y, num_filters=16, strides=1)
@@ -355,41 +674,6 @@ class ResNetFSE:
         outputs = Dense(self.outcomes, activation='linear', kernel_initializer='he_normal')(y)
         model = Model(inputs=inputs, outputs=outputs)
 
-        return model
-
-class ResNet50:
-
-    def __init__(self, outcomes, channels, img_rows, img_cols):
-        self.channels = channels
-        self.img_rows = img_rows
-        self.img_cols = img_cols
-        self.outcomes = outcomes
-
-    def get_model(self):
-        input_shape = (self.img_rows, self.img_cols, self.channels)
-        input_img = Input(input_shape, name='input_img')
-        base = keras.applications.resnet50.ResNet50(include_top=True, weights=None, input_tensor=input_img, pooling='max')
-        x = base.layers[-1].output
-        x = Dense(self.outcomes, name='gammaness', activation='linear')(x)
-        model = Model(inputs=input_img, output=x, name="resnet50")
-        return model
-
-class DenseNet121:
-
-    def __init__(self, outcomes, channels, img_rows, img_cols):
-        self.channels = channels
-        self.img_rows = img_rows
-        self.img_cols = img_cols
-        self.outcomes = outcomes
-
-    def get_model(self):
-        input_shape = (self.img_rows, self.img_cols, self.channels)
-        input_img = Input(input_shape, name='input_img')
-        base = keras.applications.densenet.DenseNet121(include_top=True, weights=None, input_tensor=input_img, pooling='max')
-        #base = keras.applications.resnet50.ResNet50(include_top=False, weights=None, input_tensor=input_img, pooling='max')
-        x = base.layers[-1].output
-        x = Dense(self.outcomes, name='gammaness', activation='linear')(x)
-        model = Model(inputs=input_img, output=x, name="densenet121")
         return model
 
 
@@ -566,39 +850,3 @@ class VGG16N: # AAA you are not calling this one, when you select VGG16N, but Ba
         return self.model
 
 
-class VGG16:
-
-    def __init__(self, outcomes, channels, img_rows, img_cols):
-        self.channels = channels
-        self.img_rows = img_rows
-        self.img_cols = img_cols
-        self.outcomes = outcomes
-    def get_model(self):
-        input_shape = (self.img_rows, self.img_cols, self.channels)
-        input_img = Input(input_shape, name='input_img')
-        base = keras.applications.vgg16.VGG16(include_top=False, weights=None, input_tensor=input_img, pooling='max')
-        x = base.layers[-1].output
-        x = Dense(self.outcomes, name='regression', activation='linear')(x)
-        model = Model(inputs=input_img, output=x, name="vgg16")
-
-        return model
-
-
-class VGG19:
-
-    def __init__(self, outcomes, channels, img_rows, img_cols):
-        self.channels = channels
-        self.img_rows = img_rows
-        self.img_cols = img_cols
-        self.outcomes = outcomes
-    def get_model(self):
-        input_shape = (self.img_rows, self.img_cols, self.channels)
-        input_img = Input(input_shape, name='input_img')
-        base = keras.applications.vgg19.VGG19(include_top=False, weights=None, input_tensor=input_img, pooling='max')
-        x = base.layers[-1].output
-        #x = Flatten(name='flatten')(x)
-        x = Dense(1000, activation='linear', name='fc1', kernel_initializer='he_normal')(x)
-        x = Dense(self.outcomes, name='regression', activation='linear', kernel_initializer='he_normal')(x)
-        model = Model(inputs=input_img, output=x, name="vgg19")
-
-        return model

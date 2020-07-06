@@ -2,16 +2,19 @@ import warnings
 warnings.simplefilter('ignore')
 
 import sys
-
-from regressors import ResNetF, DenseNet, ResNetFSE, BaseLine, \
-     ResNet50, VGG16, VGG16N, VGG19, DenseNet121
+from lst_cnns import LST_VGG16, LST_ResNet50#, LST_DenseNet
+import regressors
+from regressors import ResNetF, DenseNet, ResNetFSE, BaseLine, VGG16N, \
+    Xception, InceptionV3, InceptionResNetV2, \
+    ResNet50, ResNet101, ResNet152, ResNet50V2, ResNet101V2, ResNet152V2, \
+    VGG16, VGG19, DenseNet121
 #, ResNeXt
 
 
+def regressor_selector(model_name, hype_print, channels, img_rows, img_cols, outcomes, feature):
 
-def regressor_selector(model_name, hype_print, channels, img_rows, img_cols, outcomes):
     if model_name == 'ResNetF':
-        wd = 1e-5
+        wd = 0. #1e-5
         hype_print += '\n' + 'Weight decay: ' + str(wd)
         resnet = ResNetF(outcomes, channels, img_rows, img_cols, wd)
         model = resnet.get_model()
@@ -46,7 +49,7 @@ def regressor_selector(model_name, hype_print, channels, img_rows, img_cols, out
         # hype_print += '\n' + 'dropout_rate: ' + str(dropout_rate)
         # hype_print += '\n' + 'subsample_initial_block: ' + str(subsample_initial_block)
         # hype_print += '\n' + 'Weight decay: ' + str(wd)
-    elif model_name == 'DenseNet169':
+    elif model_name == 'DenseNet169N':
         depth = 169
         nb_dense_block = 4
         growth_rate = 32
@@ -81,41 +84,48 @@ def regressor_selector(model_name, hype_print, channels, img_rows, img_cols, out
         hype_print += '\n' + 'Reduction: ' + str(reduction)
         hype_print += '\n' + 'dropout_rate: ' + str(dropout_rate)
         hype_print += '\n' + 'subsample_initial_block: ' + str(subsample_initial_block)
-    elif model_name == 'DenseNet121':
-        net = DenseNet121(outcomes, channels, img_rows, img_cols)
+    elif model_name == 'LST_VGG16':
+        dropout_rate = 0.5
+        wd = 1e-5
+        net = LST_VGG16(
+            channels=channels,
+            img_rows=img_rows,
+            img_cols=img_cols,
+            outcomes=outcomes,
+            dropout_rate=dropout_rate,
+            weight_decay=wd
+        )
         model = net.get_model()
         params = model.count_params()
         hype_print += '\n' + 'Model params: ' + str(params)
-    elif model_name == 'ResNet50':
-        resnet = ResNet50(outcomes, channels, img_rows, img_cols)
-        model = resnet.get_model()
+        hype_print += '\n' + 'dropout_rate: ' + str(dropout_rate)
+        hype_print += '\n' + 'weight_decay: ' + str(wd)
+    #elif model_name == 'LST_DenseNet':
+    #    net = LST_DenseNet(outcomes, channels, img_rows, img_cols)
+    #    model = net.get_model()
+    #    params = model.count_params()
+    #    hype_print += '\n' + 'Model params: ' + str(params)
+    elif model_name == 'LST_ResNet50':
+        dropout_rate = 0.0
+        wd = 0.0
+        net = LST_ResNet50(
+            channels=channels,
+            img_rows=img_rows,
+            img_cols=img_cols,
+            outcomes=outcomes,
+            dropout_rate=dropout_rate,
+            weight_decay=wd
+        )
+        model = net.get_model()
         params = model.count_params()
         hype_print += '\n' + 'Model params: ' + str(params)
-    elif model_name == 'ResNetFSE':
-        wd = 1e-4
-        hype_print += '\n' + 'Weight decay: ' + str(wd)
-        resnet = ResNetFSE(outcomes, channels, img_rows, img_cols, wd)
-        model = resnet.get_model()
+        #hype_print += '\n' + 'dropout_rate: ' + str(dropout_rate)
+        #hype_print += '\n' + 'weight_decay: ' + str(wd)
+    else:
+        net = getattr(regressors, model_name)
+        net = net(outcomes, channels, img_rows, img_cols)
+        model = net.get_model()
         params = model.count_params()
         hype_print += '\n' + 'Model params: ' + str(params)
-    elif model_name == 'BaseLine':
-        bl = BaseLine(outcomes, channels, img_rows, img_cols)
-        model = bl.get_model()
-        params = model.count_params()
-        hype_print += '\n' + 'Model params: ' + str(params)
-    elif model_name == 'VGG16':
-        vgg16 = VGG16(outcomes, channels, img_rows, img_cols)
-        model = vgg16.get_model()
-        params = model.count_params()
-        hype_print += '\n' + 'Model params: ' + str(params)
-    elif model_name == 'VGG16N':
-        vgg16N = VGG16N(outcomes, channels, img_rows, img_cols)
-        model = vgg16N.get_model()
-        params = model.count_params()
-        hype_print += '\n' + 'Model params: ' + str(params)
-    elif model_name == 'VGG19':
-        vgg19 = VGG19(outcomes, channels, img_rows, img_cols)
-        model = vgg19.get_model()
-        params = model.count_params()
-        hype_print += '\n' + 'Model params: ' + str(params)
+
     return model, hype_print

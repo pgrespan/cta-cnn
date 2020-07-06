@@ -36,11 +36,14 @@ def worker(h5files, i, return_dict, interp, threshold):
     lengths = {'tot':0, 'cut':0}
 
     if interp:
+        mc_energy = []
         for l, f in enumerate(h5files):
             h5f = h5py.File(f, 'r')
             e_intensity = h5f['LST/intensities'][1:]
             e_leakage = h5f['LST/intensities_width_2'][1:]
             lst_index = h5f['LST/LST_event_index'][1:]
+            for idx in lst_index:
+                mc_energy.append(h5f['Event_Info/ei_mc_energy'][:][int(idx)])
             lengths['tot'] += len(lst_index)
             lengths['cut'] += len(lst_index[(e_intensity >= threshold['int']) & (e_leakage <= threshold['lkg'])])
             h5f.close()

@@ -45,13 +45,13 @@ def train_plots(filen, tran):
 
     epochs = range(1, len(val_losses) + 1)
 
-    plt.plot(epochs, losses, label='loss')
-    plt.plot(epochs, val_losses, label='val_loss')
+    plt.plot(epochs, losses, label='loss', marker='.')
+    plt.plot(epochs, val_losses, label='val_loss', marker='.')
     plt.xlabel('Epoch')
-    plt.ylabel('Loss [mean_absolute_error]')
+    plt.ylabel('Loss [mean absolute error]')
     plt.title('Validation loss')
-    plt.legend(loc='upper left', fancybox=True, framealpha=0.)
-    plt.grid(True)
+    plt.legend(loc='upper right', fancybox=True, framealpha=0.)
+    plt.grid(True, which="major", linestyle='--')
 
     plt.suptitle('History')
 

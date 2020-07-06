@@ -16,6 +16,13 @@
           </advancedOptions>
         </fileTransfer>
       </webServer>
+      <webServer id="03e86c68-d6c9-47bd-a675-4a5f37e86b74" name="vm-all-magic" url="http://localhost">
+        <fileTransfer rootFolder="/home/pgrespan" accessType="SFTP" host="localhost" port="6004" sshConfigId="36c30fc5-6bbf-415f-8d26-5ac60c9783ab" sshConfig="vm-all-magic">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" passiveMode="true" shareSSLContext="true" />
+          </advancedOptions>
+        </fileTransfer>
+      </webServer>
     </option>
   </component>
 </project>

@@ -6,12 +6,17 @@
         <serverdata>
           <mappings>
             <mapping deploy="/ctasoft/cnn" local="$PROJECT_DIR$/../" web="/home/pgrespan/" />
-            <mapping deploy="/trained" local="$PROJECT_DIR$/../../CTA/trained" web="/home/pgrespan/" />
-            <mapping deploy="/tb" local="$PROJECT_DIR$/../../CTA/tb" web="/home/pgrespan/" />
-            <mapping deploy="/fig" local="$PROJECT_DIR$/../../CTA/fig" web="/home/pgrespan/" />
-            <mapping deploy="/etrained" local="$PROJECT_DIR$/../../CTA/etrained" web="/home/pgrespan/" />
-            <mapping deploy="/dtrained" local="$PROJECT_DIR$/../../CTA/dtrained" web="/home/pgrespan/" />
-            <mapping deploy="/tpi" local="$PROJECT_DIR$/../../CTA/tpi" web="/home/pgrespan/" />
+            <mapping deploy="/trained" local="$USER_HOME$/CTA/ctrained" web="/home/pgrespan/" />
+            <mapping deploy="/etrained" local="$USER_HOME$/CTA/etrained" web="/home/pgrespan/" />
+            <mapping deploy="/dtrained" local="$USER_HOME$/CTA/dtrained" web="/home/pgrespan/" />
+            <mapping deploy="/fig" local="$USER_HOME$/CTA/fig" web="/home/pgrespan/" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="vm-all-magic">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/" local="$USER_HOME$/MAGIC" web="/home/pgrespan/" />
           </mappings>
         </serverdata>
       </paths>
@@ -19,6 +24,7 @@
         <serverdata>
           <mappings>
             <mapping deploy="/ctasoft/cta-cnn" local="$PROJECT_DIR$/.." web="/home/pgrespan" />
+            <mapping deploy="/" local="$USER_HOME$/CTA" web="/home/pgrespan" />
           </mappings>
         </serverdata>
       </paths>

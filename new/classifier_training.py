@@ -9,29 +9,28 @@ import pickle
 from os import listdir
 from os import mkdir
 from os.path import isfile, isdir, join
-
+from pathlib import Path
 import keras
 import keras.backend as K
 import numpy as np
-# from adabound import AdaBound
+from lst_generator import LSTGenerator
 from classifier_selector import select_classifier
 from classifier_test_plots import test_plots
 from classifier_tester import tester
 from classifier_training_plots import train_plots
 from generators import DataGeneratorC
 from keras import optimizers
-#from keras.models import load_model, Model
-#from keras.layers import Dense, Input
 from keras.callbacks import LearningRateScheduler, TensorBoard
 from keras.callbacks import ModelCheckpoint, EarlyStopping
 from losseshistory import LossHistoryC
-
+from clr import LRFinder
 from utils import get_all_files
+from keras_contrib.callbacks import CyclicLR
 
 import tensorflow as tf
 
 
-def classifier_training_main(folders, val_folders, model_name, time, epochs, batch_size, opt, learn_rate, lropf, sd, es,
+def classifier_training_main(folders, val_folders, load_model, model_name, time, epochs, batch_size, opt, learn_rate, lropf, sd, es,
                              workers, test_dirs, tb, intensity_cut, gpu_fraction):
     ###################################
     # TensorFlow wizardry for GPU dynamic memory allocation
@@ -100,25 +99,61 @@ def classifier_training_main(folders, val_folders, model_name, time, epochs, bat
     validation_files = get_all_files(val_folders)
 
     # generators
+    feature = 'gammaness' # hardcoded by now
+
     print('Building training generator...')
-
-    training_generator = DataGeneratorC(training_files, batch_size=batch_size, arrival_time=time, shuffle=shuffle,
-                                        intensity=intensity_cut, leakage2_intensity=leakage2_intensity_cut)
-
+    training_generator = DataGeneratorC(
+        h5files=training_files,
+        batch_size=batch_size,
+        arrival_time=time,
+        shuffle=shuffle,
+        intensity=intensity_cut,
+        leakage2_intensity=leakage2_intensity_cut
+    )
     train_idxs = training_generator.get_indexes()
     train_gammas = np.unique(train_idxs[:, 2], return_counts=True)[1][1]
     train_protons = np.unique(train_idxs[:, 2], return_counts=True)[1][0]
     train_gamma_frac = training_generator.gamma_fraction()
+    #training_generator = LSTGenerator(training_files,
+    #                                  batch_size=batch_size,
+    #                                  arrival_time=time,
+    #                                  feature=feature,
+    #                                  shuffle=shuffle,
+    #                                  intensity=intensity_cut,
+    #                                  leakage2_intensity=leakage2_intensity_cut)
+    #train_idxs = training_generator.get_all_info()
+    #train_gammas = np.unique(train_idxs['class'], return_counts=True)[1][1]
+    #train_protons = np.unique(train_idxs['class'], return_counts=True)[1][0]
+    #train_gamma_frac = training_generator.gamma_fraction()
 
     if len(val_folders) > 0:
         print('Building validation generator...')
-        validation_generator = DataGeneratorC(validation_files, batch_size=batch_size, arrival_time=time, shuffle=False,
-                                              intensity=intensity_cut, leakage2_intensity=leakage2_intensity_cut)
-
+        validation_generator = DataGeneratorC(
+            h5files=validation_files,
+            batch_size=batch_size,
+            arrival_time=time,
+            shuffle=False,
+            intensity=intensity_cut,
+            leakage2_intensity=leakage2_intensity_cut
+        )
         valid_idxs = validation_generator.get_indexes()
         valid_gammas = np.unique(valid_idxs[:, 2], return_counts=True)[1][1]
         valid_protons = np.unique(valid_idxs[:, 2], return_counts=True)[1][0]
         valid_gamma_frac = validation_generator.gamma_fraction()
+
+    #    validation_generator = LSTGenerator(validation_files,
+    #                                        batch_size=batch_size,
+    #                                        arrival_time=time,
+    #                                        feature=feature,
+    #                                        shuffle=False,
+    #                                        intensity=intensity_cut,
+    #                                        leakage2_intensity=leakage2_intensity_cut
+    #                                        )
+
+    #    valid_idxs = validation_generator.get_all_info()
+    #    valid_gammas = np.unique(valid_idxs['class'], return_counts=True)[1][1]
+    #    valid_protons = np.unique(valid_idxs['class'], return_counts=True)[1][0]
+    #    valid_gamma_frac = validation_generator.gamma_fraction()
 
     # class_weight = {0: 1., 1: train_protons/train_gammas}
     # print(class_weight)
@@ -184,8 +219,11 @@ def classifier_training_main(folders, val_folders, model_name, time, epochs, bat
         hype_print += '\n' + 'Fraction of gamma in validation set: ' + str(valid_gamma_frac)
 
     # keras.backend.set_image_data_format('channels_first')
-
-    model, hype_print = select_classifier(model_name, hype_print, channels, img_rows, img_cols)
+    if load_model:
+        model = keras.models.load_model(model_name)
+        model_name = Path(model_name).name
+    else:
+        model, hype_print = select_classifier(model_name, hype_print, channels, img_rows, img_cols)
     #model = load_model('/home/pgrespan/nick_models/ResNetFSE_49_0.82375_0.80292.h5')
 
     hype_print += '\n' + '========================================================================================='
@@ -275,36 +313,60 @@ def classifier_training_main(folders, val_folders, model_name, time, epochs, bat
         callbacks.append(early_stopping)
 
     if tb:
-        tb_path = './tb'
+        tb_path = os.path.join(root_dir, 'tb')
         if not os.path.exists(tb_path):
             os.mkdir(tb_path)
+        #tb_path = os.path.join(tb_path, root_dir)
+        # os.mkdir(tb_path)
         tensorboard = TensorBoard(log_dir=tb_path)
         callbacks.append(tensorboard)
+
+    clr=True
+    if clr:
+        cyclelr = CyclicLR(
+            base_lr=5e-5,
+            max_lr=1e-3,
+            step_size=3*len(training_generator)
+        )
+        callbacks.append(cyclelr)
+
+    lrfinder=False
+    if lrfinder:
+
+        lr_callback = LRFinder(len(training_generator)*batch_size, batch_size,
+                               1e-05, 1e01,
+                               # validation_data=(X_val, Y_val),
+                               lr_scale='exp', save_dir=join(root_dir,'clr'))
+        callbacks.append(lr_callback)
 
     model.compile(optimizer=optimizer, loss='binary_crossentropy', metrics=['accuracy'])
 
     if len(val_folders) > 0:
-        model.fit_generator(generator=training_generator,
-                            validation_data=validation_generator,
-                            steps_per_epoch=len(training_generator),
-                            validation_steps=len(validation_generator),
-                            epochs=epochs,
-                            verbose=1,
-                            max_queue_size=10,
-                            use_multiprocessing=True,
-                            workers=workers,
-                            shuffle=False,
-                            callbacks=callbacks)
+        model.fit(
+            x=training_generator,
+            validation_data=validation_generator,
+            steps_per_epoch=len(training_generator),
+            validation_steps=len(validation_generator),
+            epochs=epochs,
+            verbose=1,
+            max_queue_size=10,
+            use_multiprocessing=True,
+            workers=workers,
+            shuffle=False,
+            callbacks=callbacks
+        )
     else:
-        model.fit_generator(generator=training_generator,
-                            steps_per_epoch=len(training_generator),
-                            epochs=epochs,
-                            verbose=1,
-                            max_queue_size=10,
-                            use_multiprocessing=True,
-                            workers=workers,
-                            shuffle=False,
-                            callbacks=callbacks)
+        model.fit(
+            x=training_generator,
+            steps_per_epoch=len(training_generator),
+            epochs=epochs,
+            verbose=1,
+            max_queue_size=10,
+            use_multiprocessing=True,
+            workers=workers,
+            shuffle=False,
+            callbacks=callbacks
+        )
 
     # save results
     train_history = root_dir + '/train-history'
@@ -384,7 +446,9 @@ if __name__ == "__main__":
     parser.add_argument(
         '--tb', help='Use TensorBoard.', action="store_true")
     parser.add_argument(
-        '--gpu_fraction', type=float, default=0, help='Set limit to fraction of GPU memory usage. IMPORTANT: between 0 and 1.', required=False)
+        '--gpu_fraction', type=float, default=0., help='Set limit to fraction of GPU memory usage. IMPORTANT: between 0 and 1.', required=False)
+    parser.add_argument(
+        '--load_model', help='Select option in order to load a previously trained model.', action='store_true')
 
 
     FLAGS, unparsed = parser.parse_known_args()
@@ -407,5 +471,22 @@ if __name__ == "__main__":
     workers = FLAGS.workers
     test_dirs = FLAGS.test_dirs
     lr = FLAGS.learning_rate
-    classifier_training_main(folders, val_folders, model_name, time, epochs, batch_size, opt, lr, lropf, sd, es, workers,
-                             test_dirs, tb, intens, gpu_fraction)
+    load_model=FLAGS.load_model
+    classifier_training_main(
+        folders=folders,
+        val_folders=val_folders,
+        load_model=load_model,
+        model_name=model_name,
+        time=time,
+        epochs=epochs,
+        batch_size=batch_size,
+        opt=opt,
+        learn_rate=lr,
+        lropf=lropf,
+        sd=sd,
+        es=es,
+        workers=workers,
+        test_dirs=test_dirs,
+        tb=tb,
+        intensity_cut=intens,
+        gpu_fraction=gpu_fraction)

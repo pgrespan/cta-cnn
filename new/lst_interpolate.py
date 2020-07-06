@@ -3,7 +3,7 @@ import multiprocessing as mp
 from multiprocessing import Process
 from os import listdir, remove
 from os.path import isfile, join
-
+from pathlib import PurePath, Path
 import h5py
 import numpy as np
 import tables
@@ -44,8 +44,7 @@ def get_LST_data(data):
     return data_LST, LST_event_index, LST_image_charge, LST_image_peak_times
 
 
-def func(paths, ro, rc, rn):
-    # img_rows, img_cols = 100, 100
+def func(paths, outpath, ro, rc, rn):
 
     # iterate on each proton file & concatenate charge arrays
     for n, f in enumerate(paths):
@@ -66,12 +65,9 @@ def func(paths, ro, rc, rn):
             points = np.array([np.array(camera.pix_x / u.m), np.array(camera.pix_y / u.m)]).T
 
             # original choice by Nicola: 100x100 points in 2.5m x 2.5m
-            #grid_x, grid_y = np.mgrid[-1.25:1.25:100j, -1.25:1.25:100j]
-            # I choose instead 96x88 px in 2.40m x 2.20m: same spatial separation (2.5 m), less points
-            grid_x, grid_y = np.mgrid[-1.20:1.20:96j, -1.10:1.10:88j]
-            # alt az of the array
-            az_array = 0  # before was ai_run_array_direction[0][0], now it is hardcoded as it's not present in new files
-            alt_array = 1.2217305  # ai_run_array_direction[0][1]
+            grid_x, grid_y = np.mgrid[-1.25:1.25:100j, -1.25:1.25:100j]
+            # I choose instead 96x88 px in 2.40m x 2.20m: same spatial separation, less points
+            #grid_x, grid_y = np.mgrid[-1.20:1.20:96j, -1.10:1.10:88j]
 
             '''
             was probably useless and wrong even with the old simulations
@@ -80,12 +76,16 @@ def func(paths, ro, rc, rn):
             '''
 
             # LST coordinates (pointing position)
-            point = AltAz(alt=alt_array * u.rad, az=az_array * u.rad)
+            #point = AltAz(alt=alt_array * u.deg, az=az_array * u.deg)
+
 
             lst_image_charge_interp = []
             lst_image_peak_times_interp = []
-            delta_az = []
-            delta_alt = []
+            # alt az of the array [deg]
+            #az_array = 180.  # before was ai_run_array_direction[0][0], now it is hardcoded as it's not present in new files
+            #alt_array = 70.  # ai_run_array_direction[0][1]
+            #delta_az = []
+            #delta_alt = []
             intensities = []
             intensities_width_2 = []
             acc_idxs = []  # accepted indexes    # in principle it can be removed when cuts (line AAA) are not used here
@@ -121,16 +121,16 @@ def func(paths, ro, rc, rn):
                     interp_time = griddata(points, time, (grid_x, grid_y), fill_value=0, method='cubic')
 
                     # delta az, delta alt computation
-                    az = ei_az[LST_event_index[i]]
-                    alt = ei_alt[LST_event_index[i]]
-                    src = AltAz(alt=alt * u.rad, az=az * u.rad)
-                    source_direction = src.transform_to(NominalFrame(origin=point))
+                    #az = ei_az[LST_event_index[i]]
+                    #alt = ei_alt[LST_event_index[i]]
+                    #src = AltAz(alt=alt * u.rad, az=az * u.rad)
+                    #source_direction = src.transform_to(NominalFrame(origin=point))
 
                     # appending to arrays
                     lst_image_charge_interp.append(interp_img)
                     lst_image_peak_times_interp.append(interp_time)
-                    delta_az.append(source_direction.delta_az.deg)
-                    delta_alt.append(source_direction.delta_alt.deg)
+                    #delta_az.append(source_direction.delta_az.deg)
+                    #delta_alt.append(source_direction.delta_alt.deg)
 
                     intensities.append(intensity)
                     intensities_width_2.append(leakage2_intensity)
@@ -142,15 +142,14 @@ def func(paths, ro, rc, rn):
                 #    #rejected.write("{}.\tImage #{} rejected (no islands)!\n".format(count, i))
                 #    print("No islands: image #{} rejected! (cumulative: {})\n".format(i, count), end='\r')
             # lst_image_charge_interp = np.array(lst_image_charge_interp)
-            print("\nNumber of rejected images: {} ({:.1f}%)".format(count, count / len(intensities) *100))
+            print("Number of rejected images: {} ({:.1f}%)".format(count, count / len(intensities) *100))
             data_p.close()
             #rejected.close()
-
-            filename = f[:-3] + '_interp.h5'
-            print("Writing file: " + filename)
-
+            fpath = Path(f)
+            newname = fpath.name[:-3] + '_interp.h5'
+            filename = str(PurePath(outpath, newname))
+            print("Writing file: " + filename + "\n")
             data_file = h5py.File(filename, 'w')
-
             data_file.create_dataset('Event_Info/ei_alt', data=np.array(ei_alt))
             data_file.create_dataset('Event_Info/ei_az', data=np.array(ei_az))
             data_file.create_dataset('Event_Info/ei_mc_energy', data=np.array(ei_mc_energy))
@@ -163,8 +162,8 @@ def func(paths, ro, rc, rn):
             # data_file.create_dataset('LST/LST_image_peak_times', data=np.array(LST_image_peak_times))
             data_file.create_dataset('LST/LST_image_charge_interp', data=np.array(lst_image_charge_interp))
             data_file.create_dataset('LST/LST_image_peak_times_interp', data=np.array(lst_image_peak_times_interp))
-            data_file.create_dataset('LST/delta_alt', data=np.array(delta_alt))
-            data_file.create_dataset('LST/delta_az', data=np.array(delta_az))
+            #data_file.create_dataset('LST/delta_alt', data=np.array(delta_alt))
+            #data_file.create_dataset('LST/delta_az', data=np.array(delta_az))
 
             data_file.create_dataset('LST/intensities', data=np.array(intensities))
             data_file.create_dataset('LST/intensities_width_2', data=np.array(intensities_width_2))
@@ -215,6 +214,8 @@ if __name__ == '__main__':
     parser.add_argument(
         '--dirs', type=str, default='', nargs='+', help='Folder that contain .h5 files.', required=True)
     parser.add_argument(
+        '--out', type=str, default='', help='Output directory.', required=True)
+    parser.add_argument(
         '--rem_org', help='Remove the original files.', action="store_true")
     parser.add_argument(
         '--rem_corr', help='Remove corrupted files.', action="store_true")
@@ -237,13 +238,15 @@ if __name__ == '__main__':
 
     # create a single big list containing the paths of all the files
     all_files = []
-
+    mylist='mylist.txt'
+    #with open(mylist) as ghesboro:
+    #    lines = ghesboro.read().splitlines()
     for path in folders:
         files = [join(path, f) for f in listdir(path) if (
                 isfile(join(path, f))
                 and f.endswith(".h5")
-                #and not f.endswith("_interp.h5")
-                #and (f[:-3]+'_interp.h5') not in listdir(path)
+                and not f.endswith("_interp.h5")
+                and (f[:-3]+'_interp.h5') not in listdir(path)
                 )]
         all_files = all_files + files
 
@@ -260,14 +263,14 @@ if __name__ == '__main__':
         if ncpus >= num_files:
             print('ncpus >= num_files')
             for f in all_files:
-                p = Process(target=func, args=([f], FLAGS.rem_org, FLAGS.rem_corr, FLAGS.rem_nsnerr))
+                p = Process(target=func, args=([f], FLAGS.out, FLAGS.rem_org, FLAGS.rem_corr, FLAGS.rem_nsnerr))
                 p.start()
                 processes.append(p)
         else:
             print('ncpus < num_files')
             c = chunkit(all_files, ncpus)
             for f in c:
-                p = Process(target=func, args=(f, FLAGS.rem_org, FLAGS.rem_corr, FLAGS.rem_nsnerr))
+                p = Process(target=func, args=(f, FLAGS.out, FLAGS.rem_org, FLAGS.rem_corr, FLAGS.rem_nsnerr))
                 p.start()
                 processes.append(p)
 
@@ -276,4 +279,4 @@ if __name__ == '__main__':
 
     else:
 
-        func(all_files, FLAGS.rem_org, FLAGS.rem_corr, FLAGS.rem_nsnerr)
+        func(all_files, FLAGS.out, FLAGS.rem_org, FLAGS.rem_corr, FLAGS.rem_nsnerr)
