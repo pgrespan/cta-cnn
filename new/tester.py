@@ -45,9 +45,7 @@ def tester(folders,
         shuffle=False,
         emin=emin,
         emax=emax,
-        intensity=intensity_cut,
-        class_model=class_model,
-        gammaness=0.8
+        intensity=intensity_cut
     )
 
     print('Number of test batches: ' + str(len(test_generator)))
@@ -64,6 +62,7 @@ def tester(folders,
     df['energy_true'] = test_generator.get_energies(log=True)
     if feature =='gammaness':
         df['gammaness'] = predictions
+
     elif feature == 'energy':
         df['energy_reco'] = predictions
     elif feature == 'direction':
@@ -103,7 +102,7 @@ if __name__ == "__main__":
     parser.add_argument(
         '--feature', type=str, default='energy', help='Feature to train/predict.', required=True)
     parser.add_argument(
-        '--class_model', type=str, default='', help='Classification model to evaluate gammaness.', required=False)
+        '--energy_model', type=str, default='', help='Model for evaluating energy', required=False)
 
     FLAGS, unparsed = parser.parse_known_args()
 
@@ -130,4 +129,5 @@ if __name__ == "__main__":
         emin=emin,
         emax=emax,
         class_model=class_model
+
     )

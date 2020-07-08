@@ -61,7 +61,7 @@ class DataGeneratorC(keras.utils.Sequence):
         return x, y
 
     def gamma_fraction(self):
-        frac = np.mean(self.indexes, axis = 0, dtype=np.float64)[2]
+        frac = np.mean(self.indexes, axis=0, dtype=np.float64)[2]
         return frac
 
     def get_indexes(self):

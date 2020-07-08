@@ -11,7 +11,7 @@ def bbai(dirs, outfile='./data_info', model=''):
         feature='gammaness',
         shuffle=False,
         intensity=0.0,
-        leakage2_intensity=12,
+        leakage2_intensity=0.2,
         arrival_time=True,
         gammaness=0.0,
         class_model=model

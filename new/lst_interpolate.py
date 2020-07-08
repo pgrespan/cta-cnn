@@ -109,6 +109,7 @@ def func(paths, outpath, ro, rc, rn):
 
                 if len(np.where(clean > 0)[0]) != 0:
                     hillas = hillas_parameters(camera[clean], image[clean])
+
                     intensity = hillas['intensity']
 
                     l = leakage(camera, image, clean)

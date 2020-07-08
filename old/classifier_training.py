@@ -277,7 +277,11 @@ def classifier_training_main(folders, val_folders, model_name, time, epochs, bat
     hype_print += '\n' + '========================================================================================='
 
     # printing on screen hyperparameters
-    print(hype_print)
+    print(hype_print)training_generator = DataGeneratorC(training_files, batch_size=batch_size, arrival_time=time, shuffle=shuffle)
+    train_idxs = training_generator.get_indexes()
+    train_gammas = np.unique(train_idxs[:, 2], return_counts=True)[1][1]
+    train_protons = np.unique(train_idxs[:, 2], return_counts=True)[1][0]
+
 
     # create a folder to keep model & results
     now = datetime.datetime.now()
