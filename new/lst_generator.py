@@ -1,4 +1,5 @@
 import warnings
+
 warnings.simplefilter('ignore')
 
 import multiprocessing
@@ -12,6 +13,7 @@ import pandas as pd
 from astropy import units as u
 from ctapipe.coordinates import NominalFrame, AltAz
 
+
 class LSTGenerator(keras.utils.Sequence):
     'Generates data for Keras. NOTE: <shuffle=False> by default.'
 
@@ -24,8 +26,8 @@ class LSTGenerator(keras.utils.Sequence):
             shuffle=False,
             intensity=50,
             leakage2_intensity=0.2,
-            emin=1e-1000,
-            emax=1e+1000,
+            emin=None,
+            emax=None,
             img_cols=100,
             img_rows=100,
             class_model='',
@@ -64,7 +66,7 @@ class LSTGenerator(keras.utils.Sequence):
         if feature == 'direction':
             self.outcomes += 1
         if class_model != '':
-            self.evaluate_gammaness(class_model) # also, sets self.classify to True
+            self.evaluate_gammaness(class_model)  # also, sets self.classify to True
             self.apply_cuts()
         self.on_epoch_end()
 
@@ -78,14 +80,14 @@ class LSTGenerator(keras.utils.Sequence):
         # index goes from 0 to the number of batches
         # Generate indexes of the batch
 
-        #indexes = self.indexes[index * self.batch_size:(index + 1) * self.batch_size].reset_index(drop=True)
-        indexes = self.indexes.iloc[index * self.batch_size:(index + 1) * self.batch_size]
-
+        # indexes = self.indexes[index * self.batch_size:(index + 1) * self.batch_size].reset_index(drop=True)
+        # indexes = self.indexes.iloc[index * self.batch_size:(index + 1) * self.batch_size]
+        indexes = self.indexes[index * self.batch_size:(index + 1) * self.batch_size]
         # Find list of IDs
         # list_IDs_temp = [self.list_IDs[k] for k in indexes]
 
         # Generate data
-        x, y = self.__data_generation(indexes)
+        x, y = self.__data_generation(indexes=indexes)
         # print("\n", index, "y shape: ", y.shape)
         # print("training idx: ", indexes)
 
@@ -95,7 +97,8 @@ class LSTGenerator(keras.utils.Sequence):
         return x, y
 
     def gamma_fraction(self):
-        frac = np.mean(self.indexes[5], axis = 0)
+        frac = np.mean(self.indexes, axis=0, dtype=np.float64)[5]
+        # frac = np.mean(self.indexes[:, 5], axis=0)
         return frac
 
     def set_feature(self, feature):
@@ -113,7 +116,7 @@ class LSTGenerator(keras.utils.Sequence):
 
         # predict gammaness
         pr_labels = mdl.predict_generator(generator=self, steps=None, max_queue_size=10, workers=4,
-                                            use_multiprocessing=True, verbose=1)
+                                          use_multiprocessing=True, verbose=1)
         # truncate indexes to the length of predictions. OBVIOUSLY TO BE FIXED
         self.indexes = self.indexes[:len(pr_labels)]
         self.indexes['gammaness'] = pr_labels
@@ -147,20 +150,20 @@ class LSTGenerator(keras.utils.Sequence):
     def get_energies(self, log=True):
         'Set log to True (default) to get the log10 of energies (TeV)'
         if log:
-            return self.indexes[:self.__len__()*self.batch_size, 6]
+            return self.indexes[:self.__len__() * self.batch_size, 6]
         else:
-            return np.power(10, self.indexes[:self.__len__()*self.batch_size, 6])
+            return np.power(10, self.indexes[:self.__len__() * self.batch_size, 6])
 
     def get_AltAz(self, nom_frame=True):
         'Set nom_frame to True (default) to get sources direction in Nominal Frame.'
         if nom_frame:
-            return self.indexes[:self.__len__()*self.batch_size, 9:11]
+            return self.indexes[:self.__len__() * self.batch_size, 9:11]
         else:
-            return self.indexes[:self.__len__()*self.batch_size, 7:9]
+            return self.indexes[:self.__len__() * self.batch_size, 7:9]
 
     def get_class(self):
         'Gamma or proton?'
-        return self.indexes[:self.__len__()*self.batch_size, 5]
+        return self.indexes[:self.__len__() * self.batch_size, 5]
 
     def get_charges(self, info, original=True):
         'Returns charge images of selected data. DO NOT USE FOR MANY EVENTS: will overload memory (to be fixed)'
@@ -173,13 +176,15 @@ class LSTGenerator(keras.utils.Sequence):
         return x, y
 
     def apply_cuts(self):
-        self.indexes = self.indexes[
-            (self.indexes[:,3] >= self.intensity) &
-            (self.indexes[:,4] <= self.leakage2_intensity) &
-            (self.indexes[:,6] <= self.emax) &
-            (self.indexes[:,6] >= self.emin)
-        ]
-        #if self.classify:
+        if self.leakage2_intensity is not None:
+            self.indexes = self.indexes[self.indexes[:, 4] <= self.leakage2_intensity]
+        if self.intensity is not None:
+            self.indexes = self.indexes[self.indexes[:, 3] >= self.intensity]
+        if self.emax is not None:
+            self.indexes = self.indexes[self.indexes[:, 6] <= self.emax]
+        if self.emin is not None:
+            self.indexes = self.indexes[self.indexes[:, 6] >= self.emin]
+        # if self.classify:
         #    self.indexes = self.indexes[self.indexes['gammaness'] >= self.gammaness]
 
     def chunkit(self, seq, num):
@@ -201,34 +206,36 @@ class LSTGenerator(keras.utils.Sequence):
         for l, f in enumerate(h5files):
             h5f = h5py.File(f, 'r')
             (length, self.img_rows, self.img_cols) = h5f['LST/LST_image_charge_interp'].shape
-            #idx = pd.DataFrame()
+            # idx = pd.DataFrame()
+            # idx['event_index'] = h5f['LST/LST_event_index'][:]
+            # idx['file_index'] = [positions[l]]*len(idx['event_index'])
+            # idx['image_index'] = np.arange(len(idx['event_index']))
             event_index = h5f['LST/LST_event_index'][:]
-            #idx['event_index'] = h5f['LST/LST_event_index'][:]
-            file_index = [positions[l]]*length
-            #idx['file_index'] = [positions[l]]*len(idx['event_index'])
+            file_index = [positions[l]] * length
             image_index = np.arange(length)
-            #idx['image_index'] = np.arange(len(idx['event_index']))
-            energy_MC = []
+            energy_mc = []
             az = []
             alt = []
             for id in event_index:
-                energy_MC.append(np.log10(h5f['Event_Info/ei_mc_energy'][:][int(id)]))
+                energy_mc.append(np.log10(h5f['Event_Info/ei_mc_energy'][:][int(id)]))
                 az.append(h5f['Event_Info/ei_az'][:][int(id)])
                 alt.append(h5f['Event_Info/ei_alt'][:][int(id)])
-            energy_true = np.array(energy_MC) # AAA: the network will be fed with LOG10(energy_true)
+            energy_true = np.array(energy_mc)  # AAA: the network will be fed with LOG10(energy_true)
             alt = np.degrees(np.array(alt))
             az = np.degrees(np.array(az))
             d_alt, d_az = self.to_nominal_frame(alt, az)
-            intensities = h5f['LST/intensities'][:]
+            # intensities = h5f['LST/intensities'][:]
+            intensities = np.sum(h5f['LST/LST_image_charge'][:], axis=1)
             intensities_width_2 = h5f['LST/intensities_width_2'][:]
 
             fn_basename = os.path.basename(os.path.normpath(f))
             clas = np.zeros(length)  # class: proton by default
             if fn_basename.startswith('g'):
-                clas = np.ones(length) # if filename begins with 'g' ('gamma...'), switch to class gamma [1]
+                clas = np.ones(length)  # if filename begins with 'g' ('gamma...'), switch to class gamma [1]
             h5f.close()
-            #idx['index'] = np.arange(len(idx['event_index']))
-            cp = np.dstack((file_index, image_index, event_index, intensities, intensities_width_2, clas, energy_true, alt, az, d_alt, d_az)).reshape(-1, 11)
+            # idx['index'] = np.arange(len(idx['event_index']))
+            cp = np.dstack((file_index, image_index, event_index, intensities, intensities_width_2, clas, energy_true,
+                            alt, az, d_alt, d_az)).reshape(-1, 11)
 
             idx = np.append(idx, cp, axis=0)
         return_dict[i] = idx
@@ -266,20 +273,20 @@ class LSTGenerator(keras.utils.Sequence):
     def on_epoch_end(self):
         'Updates indexes after each epoch'
         if self.shuffle:
-            self.indexes = self.indexes.sample(frac=1).reset_index(drop=True)  # shuffle all the pairs (if, ii) - (index file, index image in the file)
+            np.random.shuffle(self.indexes)
+            # self.indexes = self.indexes.sample(frac=1).reset_index(drop=True)  # shuffle all the pairs (if, ii) - (index file, index image in the file)
 
     def to_nominal_frame(self, alt, az):
 
         alt_LST = 70  # deg
         az_LST = 180  # deg
 
-
         point = AltAz(
             alt=alt_LST * u.deg,
             az=az_LST * u.deg
         )
-        #alt = np.array(indexes['alt']) # altitude
-        #az = np.array(indexes['az']) # azimuth
+        # alt = np.array(indexes['alt']) # altitude
+        # az = np.array(indexes['az']) # azimuth
         # print("\nalt shape: {}, az shape: {}".format(indexes['alt'].shape, indexes['az'].shape))
         src = AltAz(
             alt=alt * u.deg,
@@ -308,14 +315,14 @@ class LSTGenerator(keras.utils.Sequence):
 
         if self.feature == 'gammaness':
             # Store class
-            y = indexes[:,5] # MAYBE it needs a rehsape
+            y = indexes[:, 5]
         elif self.feature == 'energy':
             # Store energy
-            y = indexes[:,6] # MC energy in LOG10 / MAYBE needs a reshape
+            y = indexes[:, 6]  # Energy is in log10
         elif self.feature == 'direction':
             # Store direction
-            y[:, 0] = indexes[:,9]
-            y[:, 1] = indexes[:,10]
+            y[:, 0] = indexes[:, 9]
+            y[:, 1] = indexes[:, 10]
 
         # Generate data
         for i, row in enumerate(indexes):
@@ -323,7 +330,7 @@ class LSTGenerator(keras.utils.Sequence):
             h5f = h5py.File(filename, 'r')
             # Store images
             if original:
-                x[i,:] = h5f['LST/LST_image_charge'][int(row[1])]
+                x[i, :] = h5f['LST/LST_image_charge'][int(row[1])]
             else:
                 x[i, :, :, 0] = h5f['LST/LST_image_charge_interp'][int(row[1])]
                 if arrival_time:
