@@ -30,11 +30,27 @@ from keras_contrib.callbacks import CyclicLR
 import tensorflow as tf
 
 
-def classifier_training_main(folders, val_folders, load_model, model_name, time, epochs, batch_size, opt, learn_rate, lropf, sd, es,
-                             workers, test_dirs, tb, intensity_cut, gpu_fraction):
+def classifier_training_main(
+        folders,
+        val_folders,
+        model_name,
+        time,
+        epochs,
+        batch_size,
+        opt,
+        learn_rate,
+        lropf=False,
+        sd=False,
+        es=False,
+        workers=1,
+        test_dirs='',
+        load_model=False,
+        tb=False,
+        intensity_cut=None,
+        gpu_fraction=1):
     ###################################
     # TensorFlow wizardry for GPU dynamic memory allocation
-    if gpu_fraction != 0 and gpu_fraction <= 1:
+    if 0 < gpu_fraction < 1:
         config = tf.ConfigProto()
         # Don't pre-allocate memory; allocate as-needed
         config.gpu_options.allow_growth = True
@@ -99,61 +115,55 @@ def classifier_training_main(folders, val_folders, load_model, model_name, time,
     validation_files = get_all_files(val_folders)
 
     # generators
-    feature = 'gammaness' # hardcoded by now
-
     print('Building training generator...')
-    training_generator = DataGeneratorC(
-        h5files=training_files,
-        batch_size=batch_size,
-        arrival_time=time,
-        shuffle=shuffle,
-        intensity=intensity_cut,
-        leakage2_intensity=leakage2_intensity_cut
-    )
+    feature = 'gammaness'  # hardcoded by now
+    '''
+    training_generator = DataGeneratorC(training_files,
+                                        batch_size=batch_size,
+                                        arrival_time=time,
+                                        shuffle=shuffle,
+                                        intensity=intensity_cut)
     train_idxs = training_generator.get_indexes()
     train_gammas = np.unique(train_idxs[:, 2], return_counts=True)[1][1]
     train_protons = np.unique(train_idxs[:, 2], return_counts=True)[1][0]
+    '''
+    training_generator = LSTGenerator(training_files,
+                                      batch_size=batch_size,
+                                      arrival_time=time,
+                                      feature=feature,
+                                      shuffle=shuffle,
+                                      intensity=intensity_cut,
+                                      leakage2_intensity=leakage2_intensity_cut)
+    train_idxs = training_generator.get_all_info()
+    train_gammas = np.unique(train_idxs['class'], return_counts=True)[1][1]
+    train_protons = np.unique(train_idxs['class'], return_counts=True)[1][0]
     train_gamma_frac = training_generator.gamma_fraction()
-    #training_generator = LSTGenerator(training_files,
-    #                                  batch_size=batch_size,
-    #                                  arrival_time=time,
-    #                                  feature=feature,
-    #                                  shuffle=shuffle,
-    #                                  intensity=intensity_cut,
-    #                                  leakage2_intensity=leakage2_intensity_cut)
-    #train_idxs = training_generator.get_all_info()
-    #train_gammas = np.unique(train_idxs['class'], return_counts=True)[1][1]
-    #train_protons = np.unique(train_idxs['class'], return_counts=True)[1][0]
-    #train_gamma_frac = training_generator.gamma_fraction()
+
+    # create a folder to keep model & results
+    now = datetime.datetime.now()
+    root_dir = now.strftime(model_name + '_' + '%Y-%m-%d_%H-%M')
+    mkdir(root_dir)
+    models_dir = join(root_dir, "models")
+    mkdir(models_dir)
+
+    # save data info)
+    train_idxs.to_pickle(join(root_dir, "data_info.pkl"))
 
     if len(val_folders) > 0:
         print('Building validation generator...')
-        validation_generator = DataGeneratorC(
-            h5files=validation_files,
-            batch_size=batch_size,
-            arrival_time=time,
-            shuffle=False,
-            intensity=intensity_cut,
-            leakage2_intensity=leakage2_intensity_cut
-        )
-        valid_idxs = validation_generator.get_indexes()
-        valid_gammas = np.unique(valid_idxs[:, 2], return_counts=True)[1][1]
-        valid_protons = np.unique(valid_idxs[:, 2], return_counts=True)[1][0]
+        validation_generator = LSTGenerator(validation_files,
+                                            batch_size=batch_size,
+                                            arrival_time=time,
+                                            feature=feature,
+                                            shuffle=False,
+                                            intensity=intensity_cut,
+                                            leakage2_intensity=leakage2_intensity_cut
+                                            )
+
+        valid_idxs = validation_generator.get_all_info()
+        valid_gammas = np.unique(valid_idxs['class'], return_counts=True)[1][1]
+        valid_protons = np.unique(valid_idxs['class'], return_counts=True)[1][0]
         valid_gamma_frac = validation_generator.gamma_fraction()
-
-    #    validation_generator = LSTGenerator(validation_files,
-    #                                        batch_size=batch_size,
-    #                                        arrival_time=time,
-    #                                        feature=feature,
-    #                                        shuffle=False,
-    #                                        intensity=intensity_cut,
-    #                                        leakage2_intensity=leakage2_intensity_cut
-    #                                        )
-
-    #    valid_idxs = validation_generator.get_all_info()
-    #    valid_gammas = np.unique(valid_idxs['class'], return_counts=True)[1][1]
-    #    valid_protons = np.unique(valid_idxs['class'], return_counts=True)[1][0]
-    #    valid_gamma_frac = validation_generator.gamma_fraction()
 
     # class_weight = {0: 1., 1: train_protons/train_gammas}
     # print(class_weight)
@@ -231,11 +241,6 @@ def classifier_training_main(folders, val_folders, load_model, model_name, time,
     # printing on screen hyperparameters
     print(hype_print)
 
-    # create a folder to keep model & results
-    now = datetime.datetime.now()
-    root_dir = now.strftime(model_name + '_' + '%Y-%m-%d_%H-%M')
-    mkdir(root_dir)
-
     # writing hyperparameters on file
     f = open(root_dir + '/hyperparameters.txt', 'w')
     f.write(hype_print)
@@ -247,11 +252,11 @@ def classifier_training_main(folders, val_folders, load_model, model_name, time,
 
     if len(val_folders) > 0:
         checkpoint = ModelCheckpoint(
-            filepath=root_dir + '/' + model_name + '_{epoch:02d}_{acc:.5f}_{val_acc:.5f}.h5', monitor='val_acc',
+            filepath=models_dir + '/' + model_name + '_{epoch:02d}_{acc:.5f}_{val_acc:.5f}.h5', monitor='val_acc',
             save_best_only=True)
     else:
         checkpoint = ModelCheckpoint(
-            filepath=root_dir + '/' + model_name + '_{epoch:02d}_{acc:.5f}.h5', monitor='acc',
+            filepath=models_dir + '/' + model_name + '_{epoch:02d}_{acc:.5f}.h5', monitor='acc',
             save_best_only=True)
 
     callbacks.append(checkpoint)
@@ -294,7 +299,6 @@ def classifier_training_main(folders, val_folders, load_model, model_name, time,
         callbacks.append(lrop)
 
     if sd:
-
         # learning rate schedule
         def step_decay(epoch):
             current = K.eval(model.optimizer.lr)
@@ -325,7 +329,7 @@ def classifier_training_main(folders, val_folders, load_model, model_name, time,
     if clr:
         cyclelr = CyclicLR(
             base_lr=5e-5,
-            max_lr=1e-3,
+            max_lr=5e-3,
             step_size=3*len(training_generator)
         )
         callbacks.append(cyclelr)
@@ -434,7 +438,7 @@ if __name__ == "__main__":
     parser.add_argument(
         '-t', '--time', help='Feed the network with arrival time.', action="store_true")
     parser.add_argument(
-        '-i', '--intensity_cut', type=float, default=50, help='Specify event intensity threshold (default 50 phe)', required=False)
+        '-i', '--intensity_cut', type=float, default=None, help='Specify event intensity threshold (default 50 phe)', required=False)
     parser.add_argument(
         '-lr', '--learning_rate', type=float, default=1e-04, help='Set Learning Rate (default 1e-04)', required=False)
     parser.add_argument(
