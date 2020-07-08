@@ -6,6 +6,7 @@ import h5py
 from tables.exceptions import HDF5ExtError, NoSuchNodeError
 import argparse
 import multiprocessing as mp
+import numpy as np
 
 
 def get_LST_data(data):
@@ -33,18 +34,20 @@ def chunkit(seq, num):
 
 def worker(h5files, i, return_dict, interp, threshold):
 
-    lengths = {'tot':0, 'cut':0}
+    lengths = {'tot':0, 'lkg_cut':0, 'cut':0}
 
     if interp:
         mc_energy = []
         for l, f in enumerate(h5files):
             h5f = h5py.File(f, 'r')
-            e_intensity = h5f['LST/intensities'][1:]
+            #e_intensity = h5f['LST/intensities'][1:]
+            e_intensity = np.sum(h5f['LST/LST_image_charge'][1:], axis=1)
             e_leakage = h5f['LST/intensities_width_2'][1:]
             lst_index = h5f['LST/LST_event_index'][1:]
             for idx in lst_index:
                 mc_energy.append(h5f['Event_Info/ei_mc_energy'][:][int(idx)])
             lengths['tot'] += len(lst_index)
+            lengths['lkg_cut'] += len(lst_index[e_leakage <= threshold['lkg']])
             lengths['cut'] += len(lst_index[(e_intensity >= threshold['int']) & (e_leakage <= threshold['lkg'])])
             h5f.close()
     else:
@@ -76,9 +79,9 @@ if __name__ == '__main__':
     parser.add_argument(
         '--interp', type=bool, default=False, help='Specify if count on interpolated files or not.', required=False)
     parser.add_argument(
-        '--int', type=float, default='0', help='Set a lower limit (threshold) on event intensity.', required=False)
+        '--int', type=float, default=50, help='Set a lower limit (threshold) on event intensity.', required=False)
     parser.add_argument(
-        '--lkg', type=float, default='1', help='Set an upper limit to leakage on intensity.', required=False)
+        '--lkg', type=float, default='0.2', help='Set an upper limit to leakage on intensity.', required=False)
 
     FLAGS, unparsed = parser.parse_known_args()
 
@@ -142,13 +145,16 @@ if __name__ == '__main__':
 
     print('Number of files: ' + str(num_files))
     tot_len = 0
+    lkg_len = 0
     cut_len = 0
     for k, v in return_dict.items():
         tot_len += v['tot']
+        lkg_len += v['lkg_cut']
         cut_len += v['cut']
 
     print('\nNumber of events: ' + str(tot_len))
     if interp:
+        print('Number of events (only leakage cut): {} ({:.1f}%)\n'.format(lkg_len, lkg_len / tot_len * 100))
         print('Number of selected events: {} ({:.1f}%)\n'.format(cut_len, cut_len/tot_len*100))
 
 
