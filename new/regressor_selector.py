@@ -2,7 +2,7 @@ import warnings
 warnings.simplefilter('ignore')
 
 import sys
-from lst_cnns import LST_VGG16, LST_ResNet50#, LST_DenseNet
+from lst_cnns import LST_VGG16, LST_ResNet50 # LST_ResNet50SE#, LST_DenseNet
 import regressors
 from regressors import ResNetF, DenseNet, ResNetFSE, BaseLine, VGG16N, \
     Xception, InceptionV3, InceptionResNetV2, \
@@ -11,7 +11,7 @@ from regressors import ResNetF, DenseNet, ResNetFSE, BaseLine, VGG16N, \
 #, ResNeXt
 
 
-def regressor_selector(model_name, hype_print, channels, img_rows, img_cols, outcomes, feature):
+def regressor_selector(model_name, hype_print, channels, img_rows, img_cols, outcomes):
 
     if model_name == 'ResNetF':
         wd = 0. #1e-5
@@ -85,8 +85,8 @@ def regressor_selector(model_name, hype_print, channels, img_rows, img_cols, out
         hype_print += '\n' + 'dropout_rate: ' + str(dropout_rate)
         hype_print += '\n' + 'subsample_initial_block: ' + str(subsample_initial_block)
     elif model_name == 'LST_VGG16':
-        dropout_rate = 0.5
-        wd = 1e-5
+        dropout_rate = 0.3
+        wd = 0.0
         net = LST_VGG16(
             channels=channels,
             img_rows=img_rows,
@@ -115,6 +115,23 @@ def regressor_selector(model_name, hype_print, channels, img_rows, img_cols, out
             outcomes=outcomes,
             dropout_rate=dropout_rate,
             weight_decay=wd
+        )
+        model = net.get_model()
+        params = model.count_params()
+        hype_print += '\n' + 'Model params: ' + str(params)
+        #hype_print += '\n' + 'dropout_rate: ' + str(dropout_rate)
+        #hype_print += '\n' + 'weight_decay: ' + str(wd)
+    elif model_name == 'LST_ResNet50SE':
+        dropout_rate = 0.0
+        wd = 0.0
+        net = LST_ResNet50(
+            channels=channels,
+            img_rows=img_rows,
+            img_cols=img_cols,
+            outcomes=outcomes,
+            dropout_rate=dropout_rate,
+            weight_decay=wd,
+            se=True
         )
         model = net.get_model()
         params = model.count_params()

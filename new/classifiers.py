@@ -15,7 +15,7 @@ from keras.regularizers import l2
 import densenetlst
 # import resnext
 # import sedensenetlst
-
+'''
 class LST_VGG16:
 
     def __init__(
@@ -25,7 +25,7 @@ class LST_VGG16:
             img_cols,
             outcomes=1,
             last_activation='sigmoid',
-            dropout_rate=0.5,
+            dropout_rate=0.,
             weight_decay=1e-4
     ):
         self.outcomes = outcomes
@@ -58,7 +58,7 @@ class LST_VGG16:
         self.model.add(Conv2D(filters=256, kernel_size=(3, 3), padding="same", activation="relu", kernel_initializer=self.init, kernel_regularizer=l2(self.wd)))
         self.model.add(Conv2D(filters=256, kernel_size=(3, 3), padding="same", activation="relu", kernel_initializer=self.init, kernel_regularizer=l2(self.wd)))
         self.model.add(MaxPool2D(pool_size=(2, 2), strides=(2, 2)))
-        self.model.add(Dropout(self.dropout))
+        #self.model.add(Dropout(self.dropout))
 
         self.model.add(Conv2D(filters=512, kernel_size=(3, 3), padding="same", activation="relu", kernel_initializer=self.init, kernel_regularizer=l2(self.wd)))
         self.model.add(Conv2D(filters=512, kernel_size=(3, 3), padding="same", activation="relu", kernel_initializer=self.init, kernel_regularizer=l2(self.wd)))
@@ -80,7 +80,7 @@ class LST_VGG16:
         self.model.add(Dense(units=self.outcomes, name='gammaness', activation=self.last, kernel_initializer=self.init))
 
         return self.model
-
+'''
 ###############################################################################################
 ############### NICOLA + KERAS.APPLICATIONS #################################
 
@@ -2180,41 +2180,6 @@ class ResNet152:
         return model
 
 
-class NASNetLarge:
-
-    def __init__(self, channels, img_rows, img_cols):
-        self.channels = channels
-        self.img_rows = img_rows
-        self.img_cols = img_cols
-
-    def get_model(self):
-        model = keras_contrib.applications.nasnet.NASNetLarge(input_shape=(self.img_rows, self.img_cols, self.channels),
-                                                              classes=1,
-                                                              activation='sigmoid',
-                                                              include_top=True,
-                                                              weights=None)
-
-        return model
-
-
-class NASNetA:
-
-    def __init__(self, channels, img_rows, img_cols):
-        self.channels = channels
-        self.img_rows = img_rows
-        self.img_cols = img_cols
-
-    def get_model(self):
-        model = keras_contrib.applications.nasnet.NASNet(input_shape=(self.img_rows, self.img_cols, self.channels),
-                                                         initial_reduction=True,
-                                                         classes=1,
-                                                         activation='sigmoid',
-                                                         include_top=True,
-                                                         weights=None)
-
-        return model
-
-
 class BaseLine:
 
     def __init__(self, channels, img_rows, img_cols):
@@ -2361,6 +2326,7 @@ class VGG16N:
         x = BatchNormalization()(x)
         x = Activation('relu')(x)
         x = layers.Dense(1, activation='sigmoid')(x)
+        x = layers.Dense(1, activation='sigmoid')(x)
 
         # Create model.
         self.model = models.Model(inputs, x, name='vgg16N')
@@ -2443,4 +2409,209 @@ class DenseNetSE:
                                        include_top=self.include_top)
 
         return model
+
+#########################################################################################################################
+#######################################       CNNs FROM KERAS.APPLICATIONS        #######################################
+#########################################################################################################################
+
+includetop = False
+
+class Xception:
+
+    def __init__(self, outcomes, channels, img_rows, img_cols):
+        self.channels = channels
+        self.img_rows = img_rows
+        self.img_cols = img_cols
+        self.outcomes = outcomes
+
+    def get_model(self):
+        input_shape = (self.img_rows, self.img_cols, self.channels)
+        input_img = Input(input_shape, name='input_img')
+        base = keras.applications.Xception(include_top=includetop, weights=None, input_tensor=input_img, pooling='max')
+        x = base.layers[-1].output
+        x = Dense(self.outcomes, name='gammaness', activation='sigmoid')(x)
+        model = Model(inputs=input_img, output=x, name="InceptionV3")
+        return model
+
+
+class InceptionV3:
+
+    def __init__(self, outcomes, channels, img_rows, img_cols):
+        self.channels = channels
+        self.img_rows = img_rows
+        self.img_cols = img_cols
+        self.outcomes = outcomes
+
+    def get_model(self):
+        input_shape = (self.img_rows, self.img_cols, self.channels)
+        input_img = Input(input_shape, name='input_img')
+        base = keras.applications.InceptionV3(include_top=includetop, weights=None, input_tensor=input_img, pooling='max')
+        x = base.layers[-1].output
+        x = Dense(self.outcomes, name='gammaness', activation='sigmoid')(x)
+        model = Model(inputs=input_img, output=x, name="InceptionV3")
+        return model
+
+
+class InceptionResNetV2:
+
+    def __init__(self, outcomes, channels, img_rows, img_cols):
+        self.channels = channels
+        self.img_rows = img_rows
+        self.img_cols = img_cols
+        self.outcomes = outcomes
+
+    def get_model(self):
+        input_shape = (self.img_rows, self.img_cols, self.channels)
+        input_img = Input(input_shape, name='input_img')
+        base = keras.applications.InceptionResNetV2(include_top=includetop, weights=None, input_tensor=input_img, pooling='max')
+        x = base.layers[-1].output
+        x = Dense(self.outcomes, name='gammaness', activation='sigmoid')(x)
+        model = Model(inputs=input_img, output=x, name="InceptionResNetV2")
+        return model
+
+
+class NASNetLarge:
+
+    def __init__(self, outcomes, channels, img_rows, img_cols):
+        self.channels = channels
+        self.img_rows = img_rows
+        self.img_cols = img_cols
+        self.outcomes = outcomes
+
+    def get_model(self):
+        input_shape = (self.img_rows, self.img_cols, self.channels)
+        input_img = Input(input_shape, name='input_img')
+        base = keras.applications.NASNetLarge(include_top=includetop, weights=None, input_tensor=input_img, pooling='max')
+        x = base.layers[-1].output
+        x = Dense(self.outcomes, name='gammaness', activation='sigmoid')(x)
+        model = Model(inputs=input_img, output=x, name="NASNetLarge")
+        return model
+
+
+class NASNetMobile:
+
+    def __init__(self, outcomes, channels, img_rows, img_cols):
+        self.channels = channels
+        self.img_rows = img_rows
+        self.img_cols = img_cols
+        self.outcomes = outcomes
+
+    def get_model(self):
+        input_shape = (self.img_rows, self.img_cols, self.channels)
+        input_img = Input(input_shape, name='input_img')
+        base = keras.applications.NASNetMobile(include_top=includetop, weights=None, input_tensor=input_img, pooling='max')
+        x = base.layers[-1].output
+        x = Dense(self.outcomes, name='gammaness', activation='sigmoid')(x)
+        model = Model(inputs=input_img, output=x, name="NasNetMobile")
+        return model
+
+
+class ResNet50V2:
+
+    def __init__(self, outcomes, channels, img_rows, img_cols):
+        self.channels = channels
+        self.img_rows = img_rows
+        self.img_cols = img_cols
+        self.outcomes = outcomes
+
+    def get_model(self):
+        input_shape = (self.img_rows, self.img_cols, self.channels)
+        input_img = Input(input_shape, name='input_img')
+        base = keras.applications.ResNet50V2(include_top=includetop, weights=None, input_tensor=input_img, pooling='max')
+        x = base.layers[-1].output
+        x = Dense(self.outcomes, name='gammaness', activation='sigmoid')(x)
+        model = Model(inputs=input_img, output=x, name="ResNet50V2")
+        return model
+
+
+class ResNet101V2:
+
+    def __init__(self, outcomes, channels, img_rows, img_cols):
+        self.channels = channels
+        self.img_rows = img_rows
+        self.img_cols = img_cols
+        self.outcomes = outcomes
+
+    def get_model(self):
+        input_shape = (self.img_rows, self.img_cols, self.channels)
+        input_img = Input(input_shape, name='input_img')
+        base = keras.applications.ResNet101V2(include_top=includetop, weights=None, input_tensor=input_img, pooling='max')
+        x = base.layers[-1].output
+        x = Dense(self.outcomes, name='gammaness', activation='sigmoid')(x)
+        model = Model(inputs=input_img, output=x, name="ResNet101V2")
+        return model
+
+
+class ResNet152V2:
+
+    def __init__(self, outcomes, channels, img_rows, img_cols):
+        self.channels = channels
+        self.img_rows = img_rows
+        self.img_cols = img_cols
+        self.outcomes = outcomes
+
+    def get_model(self):
+        input_shape = (self.img_rows, self.img_cols, self.channels)
+        input_img = Input(input_shape, name='input_img')
+        base = keras.applications.ResNet152V2(include_top=includetop, weights=None, input_tensor=input_img, pooling='max')
+        x = base.layers[-1].output
+        x = Dense(self.outcomes, name='gammaness', activation='sigmoid')(x)
+        model = Model(inputs=input_img, output=x, name="ResNet152V2")
+        return model
+
+
+class DenseNet121:
+
+    def __init__(self, outcomes, channels, img_rows, img_cols):
+        self.channels = channels
+        self.img_rows = img_rows
+        self.img_cols = img_cols
+        self.outcomes = outcomes
+
+    def get_model(self):
+        input_shape = (self.img_rows, self.img_cols, self.channels)
+        input_img = Input(input_shape, name='input_img')
+        base = keras.applications.densenet.DenseNet121(include_top=includetop, weights=None, input_tensor=input_img, pooling='max')
+        #base = keras.applications.resnet50.ResNet50(include_top=False, weights=None, input_tensor=input_img, pooling='max')
+        x = base.layers[-1].output
+        x = Dense(self.outcomes, name='gammaness', activation='sigmoid')(x)
+        model = Model(inputs=input_img, output=x, name="DenseNet121")
+        return model
+
+
+class DenseNet169:
+
+    def __init__(self, outcomes, channels, img_rows, img_cols):
+        self.channels = channels
+        self.img_rows = img_rows
+        self.img_cols = img_cols
+        self.outcomes = outcomes
+
+    def get_model(self):
+        input_shape = (self.img_rows, self.img_cols, self.channels)
+        input_img = Input(input_shape, name='input_img')
+        base = keras.applications.DenseNet169(include_top=includetop, weights=None, input_tensor=input_img, pooling='max')
+        x = base.layers[-1].output
+        x = Dense(self.outcomes, name='gammaness', activation='sigmoid')(x)
+        model = Model(inputs=input_img, output=x, name="DenseNet169")
+        return model
+
+
+class DenseNet201:
+
+    def __init__(self, outcomes, channels, img_rows, img_cols):
+        self.channels = channels
+        self.img_rows = img_rows
+        self.img_cols = img_cols
+        self.outcomes = outcomes
+
+    def get_model(self):
+        input_shape = (self.img_rows, self.img_cols, self.channels)
+        input_img = Input(input_shape, name='input_img')
+        base = keras.applications.DenseNet201(include_top=includetop, weights=None, input_tensor=input_img, pooling='max')
+        x = base.layers[-1].output
+        x = Dense(self.outcomes, name='gammaness', activation='sigmoid')(x)
+        model = Model(inputs=input_img, output=x, name="DenseNet201")
+        return model
+
 

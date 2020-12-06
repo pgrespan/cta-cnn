@@ -1,6 +1,6 @@
 import warnings
-warnings.simplefilter('ignore')
-
+#warnings.simplefilter('ignore')
+warnings.filterwarnings("ignore")
 import argparse
 import datetime
 import multiprocessing as mp
@@ -34,10 +34,11 @@ import tensorflow as tf
 
 
 def regressor_training_main(folders, val_folders, load_model, model_name, time, epochs, batch_size, opt, learning_rate, lropf, sd, es,
-                            feature, workers, test_dirs, intensity_cut, tb, gpu_fraction=0.5, emin=-100, emax=100, class_model=''):
+                            feature, workers, test_dirs, intensity_cut, leakage, tb, gpu_fraction=0.5, emin=-100, emax=100, class_model='', clr=False,
+                            train_indexes=None, valid_indexes=None, clr_values=[5e-5, 5e-3, 4]):
     ###################################
     #TensorFlow wizardry for GPU dynamic memory allocation
-    if gpu_fraction != 0 and gpu_fraction <= 1:
+    if 0 < gpu_fraction < 1:
         config = tf.ConfigProto()
         # Don't pre-allocate memory; allocate as-needed
         config.gpu_options.allow_growth = True
@@ -55,9 +56,6 @@ def regressor_training_main(folders, val_folders, load_model, model_name, time, 
 
     # hard coded parameters
     shuffle = True
-
-    img_rows, img_cols = 100, 100
-    #img_rows, img_cols = 96, 88
     channels = 1
     if time:
         channels = 2
@@ -65,6 +63,12 @@ def regressor_training_main(folders, val_folders, load_model, model_name, time, 
     # early stopping
     md_es = 0.1  # min delta
     p_es = 50  # patience
+
+    # cycle learning rate CLR
+    base_lr = clr_values[0]
+    max_lr = clr_values[1]
+    step_size = clr_values[2]
+    
 
     # sgd
     lr = 0.01  # lr
@@ -102,10 +106,17 @@ def regressor_training_main(folders, val_folders, load_model, model_name, time, 
 
     # cuts
     # intensity_cut = 50
-    leakage2_intensity_cut = 0.2
+    leakage2_intensity_cut = leakage
 
     training_files = get_all_files(folders)
     validation_files = get_all_files(val_folders)
+
+    # create a folder to keep model & results
+    now = datetime.datetime.now()
+    root_dir = now.strftime(model_name + '_' + feature + '_' + '%Y-%m-%d_%H-%M')
+    mkdir(root_dir)
+    models_dir = join(root_dir, "models")
+    mkdir(models_dir)
 
     # generators
     print('Building training generator...')
@@ -116,8 +127,12 @@ def regressor_training_main(folders, val_folders, load_model, model_name, time, 
                                       shuffle=shuffle,
                                       intensity=intensity_cut,
                                       leakage2_intensity=leakage2_intensity_cut,
-                                      class_model=class_model,
-                                      gammaness=0.55)
+                                      load_indexes=train_indexes
+                                      )
+    if train_indexes is None:
+        train_idxs = training_generator.get_all_info()
+        train_idxs.to_pickle(join(root_dir, "train_indexes.pkl"))
+
 
     if len(val_folders) > 0:
         print('Building validation generator...')
@@ -128,11 +143,17 @@ def regressor_training_main(folders, val_folders, load_model, model_name, time, 
                                               shuffle=False,
                                               intensity=intensity_cut,
                                               leakage2_intensity=leakage2_intensity_cut,
-                                              class_model=class_model,
-                                              gammaness=0.55)
-
+                                              load_indexes=valid_indexes
+                                            )
+        if valid_indexes is None:
+            valid_idxs = validation_generator.get_all_info()
+            valid_idxs.to_pickle(join(root_dir, "valid_indexes.pkl"))
     # class_weight = {0: 1., 1: train_protons/train_gammas}
     # print(class_weight)
+
+    # get image size (rows and columns)
+    img_rows = training_generator.img_rows
+    img_cols = training_generator.img_cols
 
     hype_print = '\n' + '======================================HYPERPARAMETERS======================================'
 
@@ -150,6 +171,11 @@ def regressor_training_main(folders, val_folders, load_model, model_name, time, 
     hype_print += '\n' + 'intensity_cut: ' + str(intensity_cut)
     hype_print += '\n' + 'leakage2_intensity_cut: ' + str(leakage2_intensity_cut)
 
+    if clr:
+        hype_print += '\n' + '--- Cycle Learning Rate ---'
+        hype_print += '\n' + 'Base LR: ' + str(base_lr)
+        hype_print += '\n' + 'Max LR: ' + str(max_lr)
+        hype_print += '\n' + 'Step size: ' + str(step_size) + ' (' + str(step_size*len(training_generator)) + ')'
     if es:
         hype_print += '\n' + '--- Early stopping ---'
         hype_print += '\n' + 'Min delta: ' + str(md_es)
@@ -211,19 +237,14 @@ def regressor_training_main(folders, val_folders, load_model, model_name, time, 
         model = keras.models.load_model(model_name)
         model_name = Path(model_name).name
     else:
-        model, hype_print = regressor_selector(model_name, hype_print, channels, img_rows, img_cols, feature, outcomes)
+        model, hype_print = regressor_selector(model_name, hype_print, channels, img_rows, img_cols, outcomes)
 
     hype_print += '\n' + '========================================================================================='
 
     # printing on screen hyperparameters
     print(hype_print)
 
-    # create a folder to keep model & results
-    now = datetime.datetime.now()
-    root_dir = now.strftime(model_name + '_' + feature + '_' + '%Y-%m-%d_%H-%M')
-    mkdir(root_dir)
-    models_dir = join(root_dir, "models")
-    mkdir(models_dir)
+
     # writing hyperparameters on file
     f = open(root_dir + '/hyperparameters.txt', 'w')
     f.write(hype_print)
@@ -236,7 +257,7 @@ def regressor_training_main(folders, val_folders, load_model, model_name, time, 
     if len(val_folders) > 0:
         checkpoint = ModelCheckpoint(
             filepath=models_dir + '/' + model_name + '_{epoch:02d}_{loss:.5f}_{val_loss:.5f}.h5', monitor='val_loss',
-            save_best_only=True)
+            save_best_only=False)
     else:
         checkpoint = ModelCheckpoint(
             filepath=models_dir + '/' + model_name + '_{epoch:02d}_{loss:.5f}.h5', monitor='loss',
@@ -340,12 +361,15 @@ def regressor_training_main(folders, val_folders, load_model, model_name, time, 
         )
         callbacks.append(ocp)
     '''
-    clr=True
+
+
     if clr:
         cyclelr = CyclicLR(
-            base_lr=1e-5,
-            max_lr=7e-4,
-            step_size=3*len(training_generator)
+            base_lr=base_lr,
+            max_lr=max_lr,
+            step_size=step_size*len(training_generator),
+            #mode='exp_range' # uncomment to activate exp mode, instead of traingular
+
         )
         callbacks.append(cyclelr)
 
@@ -448,7 +472,10 @@ if __name__ == "__main__":
     parser.add_argument(
         '-t', '--time', help='Feed the network with arrival time.', action="store_true")
     parser.add_argument(
-        '-i', '--intensity_cut', type=float, default=50, help='Specify event intensity threshold (default 50 phe)', required=False)
+        '-i', '--intensity_cut', type=float, default=None, help='Specify event intensity threshold (default is None)', required=False)
+    parser.add_argument(
+        '-lkg', '--leakage2', type=float, default=None, help='Specify event leakage2 max value (default is None)',
+        required=False)
     parser.add_argument(
         '--emin', type=float, default=-100, help='Specify min event MC energy in a log10 scale (default -100)',
         required=False)
@@ -471,7 +498,15 @@ if __name__ == "__main__":
     parser.add_argument(
         '--es', help='Use early stopping.', action="store_true")
     parser.add_argument(
+        '--clr', help='Use Cycle Learning Rate policy.', action="store_true")
+    parser.add_argument(
+        '--clr_values', help='CLR values.', type=float, nargs=3, default=[1e-4, 1e-3, 3], required=False)
+    parser.add_argument(
         '--tb', help='Use TensorBoard.', action="store_true")
+    parser.add_argument(
+        '--train_indexes', type=str, default=None, help='Load training indexes.', required=False)
+    parser.add_argument(
+        '--valid_indexes', type=str, default=None, help='Load validation indexes.', required=False)
 
     FLAGS, unparsed = parser.parse_known_args()
 
@@ -483,6 +518,7 @@ if __name__ == "__main__":
     model_name = FLAGS.model
     time = FLAGS.time
     intens=FLAGS.intensity_cut
+    lkg = FLAGS.leakage2
     epochs = FLAGS.epochs
     batch_size = FLAGS.batch_size
     opt = FLAGS.optimizer
@@ -499,6 +535,10 @@ if __name__ == "__main__":
     emin = FLAGS.emin
     emax = FLAGS.emax
     class_model = FLAGS.class_model
+    clr=FLAGS.clr
+    train_indexes=FLAGS.train_indexes
+    valid_indexes = FLAGS.valid_indexes
+    clr_values = FLAGS.clr_values
 
     regressor_training_main(
         folders=folders,
@@ -517,10 +557,15 @@ if __name__ == "__main__":
         workers=workers,
         test_dirs=test_dirs,
         intensity_cut=intens,
+        leakage=lkg,
         tb=tb,
         gpu_fraction=gpufraction,
         emin=emin,
         emax=emax,
-        class_model=class_model
+        class_model=class_model,
+        clr=clr,
+        train_indexes=train_indexes,
+        valid_indexes=valid_indexes,
+        clr_values= clr_values
     )
 

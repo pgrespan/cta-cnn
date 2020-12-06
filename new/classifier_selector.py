@@ -5,10 +5,11 @@ import sys
 
 from keras.layers import Dense
 from keras.utils.data_utils import get_file
-
+from lst_cnns import LST_VGG16, LST_ResNet50, LST_ResNet18
+import classifiers
 from classifiers import ClassifierV1, ClassifierV2, ClassifierV3, ResNet, ResNetA, ResNetB, ResNetC, ResNetD, ResNetE, \
-    ResNetF, ResNetG, ResNetH, DenseNet, ResNetFSE, ResNet18, ResNet34, ResNet50, ResNet101, ResNet152, NASNetLarge, \
-    NASNetA, ResNetFSEA, BaseLine, ResNeXt, VGG16, VGG16N, VGG19, ResNetFSEFixed, DenseNetSE, LST_VGG16
+    ResNetF, ResNetG, ResNetH, DenseNet, ResNetFSE, ResNet18, ResNet34, ResNet50, ResNet101, ResNet152, \
+    ResNetFSEA, BaseLine, ResNeXt, VGG16, VGG16N, VGG19, ResNetFSEFixed, DenseNetSE
 
 DENSENET_169_WEIGHTS_PATH_NO_TOP = r'https://github.com/titu1994/DenseNet/releases/download/v3.0/DenseNet-BC-169-32-no-top.h5'
 
@@ -21,6 +22,7 @@ def select_classifier(model_name, hype_print, channels, img_rows, img_cols):
             channels=channels,
             img_rows=img_rows,
             img_cols=img_cols,
+            last_activation='sigmoid',
             dropout_rate=dropout_rate,
             weight_decay=wd
         )
@@ -29,85 +31,73 @@ def select_classifier(model_name, hype_print, channels, img_rows, img_cols):
         hype_print += '\n' + 'Model params: ' + str(params)
         hype_print += '\n' + 'dropout_rate: ' + str(dropout_rate)
         hype_print += '\n' + 'weight_decay: ' + str(wd)
-    elif model_name == 'ClassifierV1':
-        class_v1 = ClassifierV1(channels, img_rows, img_cols)
-        model = class_v1.get_model()
+    elif model_name == 'LST_ResNet18':
+        dropout_rate = 0 # 0.5
+        wd = 0 #1e-3
+        net = LST_ResNet18(
+            channels=channels,
+            img_rows=img_rows,
+            img_cols=img_cols,
+            last_activation='sigmoid',
+            dropout_rate=dropout_rate,
+            weight_decay=wd,
+            se=False
+        )
+        model = net.get_model()
         params = model.count_params()
         hype_print += '\n' + 'Model params: ' + str(params)
-    elif model_name == 'ClassifierV2':
-        class_v2 = ClassifierV2(img_rows, img_cols)
-        model = class_v2.get_model()
+        hype_print += '\n' + 'dropout_rate: ' + str(dropout_rate)
+        hype_print += '\n' + 'weight_decay: ' + str(wd)
+    elif model_name == 'LST_ResNet18SE':
+        dropout_rate = 0. # 0.5
+        wd = 0.00
+        net = LST_ResNet18(
+            channels=channels,
+            img_rows=img_rows,
+            img_cols=img_cols,
+            last_activation='sigmoid',
+            dropout_rate=dropout_rate,
+            weight_decay=wd,
+            se=True
+        )
+        model = net.get_model()
         params = model.count_params()
         hype_print += '\n' + 'Model params: ' + str(params)
-    elif model_name == 'ClassifierV3':
-        class_v3 = ClassifierV3(channels, img_rows, img_cols)
-        model = class_v3.get_model()
+        hype_print += '\n' + 'dropout_rate: ' + str(dropout_rate)
+        hype_print += '\n' + 'weight_decay: ' + str(wd)
+    elif model_name == 'LST_ResNet50':
+        dropout_rate = 0 # 0.5
+        wd = 1e-2
+        net = LST_ResNet50(
+            channels=channels,
+            img_rows=img_rows,
+            img_cols=img_cols,
+            last_activation='sigmoid',
+            dropout_rate=dropout_rate,
+            weight_decay=wd
+        )
+        model = net.get_model()
         params = model.count_params()
         hype_print += '\n' + 'Model params: ' + str(params)
-    elif model_name == 'ResNet20V1':
-        resnet = ResNet(img_rows, img_cols)
-        model = resnet.get_model(1, 3)
+        hype_print += '\n' + 'dropout_rate: ' + str(dropout_rate)
+        hype_print += '\n' + 'weight_decay: ' + str(wd)
+    elif model_name == 'LST_ResNet50SE':
+        dropout_rate = 0.5 # 0.5
+        wd = 0.00
+        net = LST_ResNet50(
+            channels=channels,
+            img_rows=img_rows,
+            img_cols=img_cols,
+            last_activation='sigmoid',
+            dropout_rate=dropout_rate,
+            weight_decay=wd,
+            se=True
+        )
+        model = net.get_model()
         params = model.count_params()
         hype_print += '\n' + 'Model params: ' + str(params)
-    elif model_name == 'ResNet32V1':
-        resnet = ResNet(img_rows, img_cols)
-        model = resnet.get_model(1, 5)
-        params = model.count_params()
-        hype_print += '\n' + 'Model params: ' + str(params)
-    elif model_name == 'ResNetA':
-        resnet = ResNetA(img_rows, img_cols)
-        model = resnet.get_model()
-        params = model.count_params()
-        hype_print += '\n' + 'Model params: ' + str(params)
-    elif model_name == 'ResNetB':
-        wd = 3e-6
-        print('Weight decay: ', wd)
-        resnet = ResNetB(img_rows, img_cols, wd)
-        model = resnet.get_model()
-        params = model.count_params()
-        hype_print += '\n' + 'Model params: ' + str(params)
-    elif model_name == 'ResNetC':
-        wd = 0
-        print('Weight decay: ', wd)
-        resnet = ResNetC(img_rows, img_cols, wd)
-        model = resnet.get_model()
-        params = model.count_params()
-        hype_print += '\n' + 'Model params: ' + str(params)
-    elif model_name == 'ResNetD':
-        wd = 0
-        print('Weight decay: ', wd)
-        resnet = ResNetD(img_rows, img_cols, wd)
-        model = resnet.get_model()
-        params = model.count_params()
-        hype_print += '\n' + 'Model params: ' + str(params)
-    elif model_name == 'ResNetE':
-        wd = 0
-        print('Weight decay: ', wd)
-        resnet = ResNetE(img_rows, img_cols, wd)
-        model = resnet.get_model()
-        params = model.count_params()
-        hype_print += '\n' + 'Model params: ' + str(params)
-    elif model_name == 'ResNetF':
-        wd = 1e-4
-        hype_print += '\n' + 'Weight decay: ' + str(wd)
-        resnet = ResNetF(channels, img_rows, img_cols, wd)
-        model = resnet.get_model()
-        params = model.count_params()
-        hype_print += '\n' + 'Model params: ' + str(params)
-    elif model_name == 'ResNetG':
-        wd = 0
-        print('Weight decay: ', wd)
-        resnet = ResNetG(img_rows, img_cols, wd)
-        model = resnet.get_model()
-        params = model.count_params()
-        hype_print += '\n' + 'Model params: ' + str(params)
-    elif model_name == 'ResNetH':
-        wd = 1e-3
-        print('Weight decay: ', wd)
-        resnet = ResNetH(img_rows, img_cols, wd)
-        model = resnet.get_model()
-        params = model.count_params()
-        hype_print += '\n' + 'Model params: ' + str(params)
+        hype_print += '\n' + 'dropout_rate: ' + str(dropout_rate)
+        hype_print += '\n' + 'weight_decay: ' + str(wd)
     elif model_name == 'DenseNet':
         depth = 64
         growth_rate = 12
@@ -370,16 +360,6 @@ def select_classifier(model_name, hype_print, channels, img_rows, img_cols):
         model = resnet.get_model()
         params = model.count_params()
         hype_print += '\n' + 'Model params: ' + str(params)
-    elif model_name == 'NASNetLarge':
-        resnet = NASNetLarge(channels, img_rows, img_cols)
-        model = resnet.get_model()
-        params = model.count_params()
-        hype_print += '\n' + 'Model params: ' + str(params)
-    elif model_name == 'NASNetA':
-        resnet = NASNetA(channels, img_rows, img_cols)
-        model = resnet.get_model()
-        params = model.count_params()
-        hype_print += '\n' + 'Model params: ' + str(params)
     elif model_name == 'BaseLine':
         bl = BaseLine(channels, img_rows, img_cols)
         model = bl.get_model()
@@ -445,7 +425,14 @@ def select_classifier(model_name, hype_print, channels, img_rows, img_cols):
         # hype_print += '\n' + 'subsample_initial_block: ' + str(subsample_initial_block)
         # hype_print += '\n' + 'Weight decay: ' + str(wd)
     else:
-        print('Model name not valid')
-        sys.exit(1)
+        try:
+            net = getattr(classifiers, model_name)
+            net = net(1, channels, img_rows, img_cols)
+            model = net.get_model()
+            params = model.count_params()
+            hype_print += '\n' + 'Model params: ' + str(params)
+        except:
+            print('Model name not valid')
+            sys.exit(1)
 
     return model, hype_print

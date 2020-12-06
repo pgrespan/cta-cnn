@@ -42,12 +42,17 @@ def classifier_training_main(
         lropf=False,
         sd=False,
         es=False,
+        clr=False,
         workers=1,
         test_dirs='',
         load_model=False,
         tb=False,
         intensity_cut=None,
-        gpu_fraction=1):
+        leakage=0.2,
+        gpu_fraction=1,
+        train_indexes=None,
+        valid_indexes=None,
+        clr_values=[5e-5, 5e-3, 4]):
     ###################################
     # TensorFlow wizardry for GPU dynamic memory allocation
     if 0 < gpu_fraction < 1:
@@ -68,8 +73,6 @@ def classifier_training_main(
 
     # hard coded parameters
     shuffle = True
-
-    img_rows, img_cols = 100, 100
     channels = 1
     if time:
         channels = 2
@@ -77,6 +80,11 @@ def classifier_training_main(
     # early stopping
     md_es = 0.01  # min delta
     p_es = 25  # patience
+
+    # cycle learning rate CLR
+    base_lr = clr_values[0]
+    max_lr = clr_values[1]
+    step_size = clr_values[2]
 
     # sgd
     lr = 0.01  # lr
@@ -109,7 +117,7 @@ def classifier_training_main(
 
     # cuts
     #intensity_cut = 500
-    leakage2_intensity_cut = 0.2
+    #leakage2_intensity_cut = 0.2
 
     training_files = get_all_files(folders)
     validation_files = get_all_files(val_folders)
@@ -133,12 +141,12 @@ def classifier_training_main(
                                       feature=feature,
                                       shuffle=shuffle,
                                       intensity=intensity_cut,
-                                      leakage2_intensity=leakage2_intensity_cut)
-    train_idxs = training_generator.get_all_info()
-    train_gammas = np.unique(train_idxs['class'], return_counts=True)[1][1]
-    train_protons = np.unique(train_idxs['class'], return_counts=True)[1][0]
-    train_gamma_frac = training_generator.gamma_fraction()
-
+                                      leakage2_intensity=leakage,
+                                      load_indexes=train_indexes)
+    # get image size (rows and columns)
+    img_rows = training_generator.img_rows
+    img_cols = training_generator.img_cols
+    print("IMG rows: {}, cols: {}".format(img_rows, img_cols))
     # create a folder to keep model & results
     now = datetime.datetime.now()
     root_dir = now.strftime(model_name + '_' + '%Y-%m-%d_%H-%M')
@@ -146,8 +154,13 @@ def classifier_training_main(
     models_dir = join(root_dir, "models")
     mkdir(models_dir)
 
-    # save data info)
-    train_idxs.to_pickle(join(root_dir, "data_info.pkl"))
+    # save data info
+    train_idxs = training_generator.get_all_info()
+    train_gammas = np.unique(train_idxs['class'], return_counts=True)[1][1]
+    train_protons = np.unique(train_idxs['class'], return_counts=True)[1][0]
+    train_gamma_frac = training_generator.gamma_fraction()
+    if train_indexes is None:
+        train_idxs.to_pickle(join(root_dir, "train_indexes.pkl"))
 
     if len(val_folders) > 0:
         print('Building validation generator...')
@@ -157,13 +170,15 @@ def classifier_training_main(
                                             feature=feature,
                                             shuffle=False,
                                             intensity=intensity_cut,
-                                            leakage2_intensity=leakage2_intensity_cut
+                                            leakage2_intensity=leakage,
+                                            load_indexes=valid_indexes
                                             )
-
         valid_idxs = validation_generator.get_all_info()
         valid_gammas = np.unique(valid_idxs['class'], return_counts=True)[1][1]
         valid_protons = np.unique(valid_idxs['class'], return_counts=True)[1][0]
         valid_gamma_frac = validation_generator.gamma_fraction()
+        if valid_indexes is None:
+            valid_idxs.to_pickle(join(root_dir, "valid_indexes.pkl"))
 
     # class_weight = {0: 1., 1: train_protons/train_gammas}
     # print(class_weight)
@@ -181,8 +196,13 @@ def classifier_training_main(
     hype_print += '\n' + 'Test dirs: ' + str(test_dirs)
 
     hype_print += '\n' + 'intensity_cut: ' + str(intensity_cut)
-    hype_print += '\n' + 'leakage2_intensity_cut: ' + str(leakage2_intensity_cut)
+    hype_print += '\n' + 'leakage2_intensity_cut: ' + str(leakage)
 
+    if clr:
+        hype_print += '\n' + '--- Cycle Learning Rate ---'
+        hype_print += '\n' + 'Base LR: ' + str(base_lr)
+        hype_print += '\n' + 'Max LR: ' + str(max_lr)
+        hype_print += '\n' + 'Step size: ' + str(step_size) + ' (' + str(step_size*len(training_generator)) + ')'
     if es:
         hype_print += '\n' + '--- Early stopping ---'
         hype_print += '\n' + 'Min delta: ' + str(md_es)
@@ -253,7 +273,7 @@ def classifier_training_main(
     if len(val_folders) > 0:
         checkpoint = ModelCheckpoint(
             filepath=models_dir + '/' + model_name + '_{epoch:02d}_{acc:.5f}_{val_acc:.5f}.h5', monitor='val_acc',
-            save_best_only=True)
+            save_best_only=False)
     else:
         checkpoint = ModelCheckpoint(
             filepath=models_dir + '/' + model_name + '_{epoch:02d}_{acc:.5f}.h5', monitor='acc',
@@ -325,12 +345,11 @@ def classifier_training_main(
         tensorboard = TensorBoard(log_dir=tb_path)
         callbacks.append(tensorboard)
 
-    clr=True
     if clr:
         cyclelr = CyclicLR(
-            base_lr=5e-5,
-            max_lr=5e-3,
-            step_size=3*len(training_generator)
+            base_lr=base_lr,
+            max_lr=max_lr,
+            step_size=step_size*len(training_generator)
         )
         callbacks.append(cyclelr)
 
@@ -398,7 +417,7 @@ def classifier_training_main(
             print('Best checkpoint: ', best)
 
         else:
-            # get the best model on validation
+            # get the best model
             acc = history.dic['accuracy']
             m = acc.index(max(acc))  # get the index with the highest accuracy
 
@@ -440,6 +459,9 @@ if __name__ == "__main__":
     parser.add_argument(
         '-i', '--intensity_cut', type=float, default=None, help='Specify event intensity threshold (default 50 phe)', required=False)
     parser.add_argument(
+        '-lkg', '--leakage2', type=float, default=None, help='Specify event leakage2 max value (default 0.2)',
+        required=False)
+    parser.add_argument(
         '-lr', '--learning_rate', type=float, default=1e-04, help='Set Learning Rate (default 1e-04)', required=False)
     parser.add_argument(
         '--lrop', help='Reduce learning rate on plateau.', action="store_true")
@@ -448,12 +470,19 @@ if __name__ == "__main__":
     parser.add_argument(
         '--es', help='Use early stopping.', action="store_true")
     parser.add_argument(
+        '--clr', help='Use Cycle Learning Rate policy.', action="store_true")
+    parser.add_argument(
+        '--clr_values', help='CLR values.', type=float, nargs=3, default=[1e-4, 1e-3, 3], required=False)
+    parser.add_argument(
         '--tb', help='Use TensorBoard.', action="store_true")
     parser.add_argument(
         '--gpu_fraction', type=float, default=0., help='Set limit to fraction of GPU memory usage. IMPORTANT: between 0 and 1.', required=False)
     parser.add_argument(
         '--load_model', help='Select option in order to load a previously trained model.', action='store_true')
-
+    parser.add_argument(
+        '--train_indexes', type=str, default=None, help='Load training indexes.', required=False)
+    parser.add_argument(
+        '--valid_indexes', type=str, default=None, help='Load validation indexes.', required=False)
 
     FLAGS, unparsed = parser.parse_known_args()
 
@@ -463,6 +492,7 @@ if __name__ == "__main__":
     model_name = FLAGS.model
     time = FLAGS.time
     intens=FLAGS.intensity_cut
+    lkg = FLAGS.leakage2
     epochs = FLAGS.epochs
     batch_size = FLAGS.batch_size
     opt = FLAGS.optimizer
@@ -476,6 +506,11 @@ if __name__ == "__main__":
     test_dirs = FLAGS.test_dirs
     lr = FLAGS.learning_rate
     load_model=FLAGS.load_model
+    clr=FLAGS.clr
+    clr_values = FLAGS.clr_values
+    train_indexes=FLAGS.train_indexes
+    valid_indexes = FLAGS.valid_indexes
+
     classifier_training_main(
         folders=folders,
         val_folders=val_folders,
@@ -489,8 +524,14 @@ if __name__ == "__main__":
         lropf=lropf,
         sd=sd,
         es=es,
+        clr=clr,
         workers=workers,
         test_dirs=test_dirs,
         tb=tb,
         intensity_cut=intens,
-        gpu_fraction=gpu_fraction)
+        leakage=lkg,
+        gpu_fraction=gpu_fraction,
+        train_indexes=train_indexes,
+        valid_indexes=valid_indexes,
+        clr_values=clr_values
+    )

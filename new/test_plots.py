@@ -7,7 +7,7 @@ def plot_ROC(dataframe, outpath, n_curves=5, energy_is_log=True):
     df = dataframe
     fpr, tpr, _ = roc_curve(df['class'], df['gammaness'])
 
-    energy = 'energy_true'
+    energy = 'energy_reco'
     if not energy_is_log:
         df[energy] = np.log10(df[energy])
 

@@ -22,14 +22,16 @@ class LSTGenerator(keras.utils.Sequence):
             h5files,
             feature,
             batch_size=32,
+            img_rows=96,
+            img_cols=88,
             arrival_time=False,
             shuffle=False,
             intensity=50,
             leakage2_intensity=0.2,
             emin=None,
             emax=None,
-            img_cols=100,
-            img_rows=100,
+            plike = False,
+            load_indexes=None,
             class_model='',
             gammaness=0.7):
 
@@ -37,6 +39,7 @@ class LSTGenerator(keras.utils.Sequence):
         self.h5files = h5files
         self.feature = feature
         self.indexes = np.array([], dtype=np.int64).reshape(0, 11)
+        self.load = load_indexes
         self.i = [
             'file_idx',
             'img_idx',
@@ -45,29 +48,30 @@ class LSTGenerator(keras.utils.Sequence):
             'leakage2',
             'class',
             'energy_true',
-            'az',
             'alt',
+            'az',
             'd_alt',
             'd_az',
         ]
         self.shuffle = shuffle
+        self.plike = plike
+        self.img_rows = img_rows
+        self.img_cols = img_cols
         self.generate_indexes()
         self.arrival_time = arrival_time
         self.intensity = intensity
         self.leakage2_intensity = leakage2_intensity
         self.emin = emin
         self.emax = emax
-        self.img_rows = img_rows
-        self.img_cols = img_cols
         self.classify = False
         self.gammaness = gammaness
         self.apply_cuts()
         self.outcomes = 1
         if feature == 'direction':
             self.outcomes += 1
-        if class_model != '':
-            self.evaluate_gammaness(class_model)  # also, sets self.classify to True
-            self.apply_cuts()
+        #if class_model != '':
+        #    self.evaluate_gammaness(class_model)  # also, sets self.classify to True
+        #    self.apply_cuts()
         self.on_epoch_end()
 
     def __len__(self):
@@ -176,14 +180,20 @@ class LSTGenerator(keras.utils.Sequence):
         return x, y
 
     def apply_cuts(self):
-        if self.leakage2_intensity is not None:
+        if self.leakage2_intensity is None:
+            print("Leakage is NONEEEE: SAFE!")
+        elif self.leakage2_intensity is not None:
             self.indexes = self.indexes[self.indexes[:, 4] <= self.leakage2_intensity]
-        if self.intensity is not None:
+        if self.intensity is None:
+            print("Intensity is NONEEEEE: SAFE!")
+        elif self.intensity is not None:
             self.indexes = self.indexes[self.indexes[:, 3] >= self.intensity]
         if self.emax is not None:
             self.indexes = self.indexes[self.indexes[:, 6] <= self.emax]
         if self.emin is not None:
             self.indexes = self.indexes[self.indexes[:, 6] >= self.emin]
+        #self.img_rows = 96
+        #self.img_cols = 88
         # if self.classify:
         #    self.indexes = self.indexes[self.indexes['gammaness'] >= self.gammaness]
 
@@ -205,7 +215,8 @@ class LSTGenerator(keras.utils.Sequence):
         # df = pd.DataFrame()
         for l, f in enumerate(h5files):
             h5f = h5py.File(f, 'r')
-            (length, self.img_rows, self.img_cols) = h5f['LST/LST_image_charge_interp'].shape
+            (length, img_rows, img_cols) = h5f['LST/LST_image_charge_interp'].shape
+            #print(length, ' ', self.img_rows, ' ', self.img_cols)
             # idx = pd.DataFrame()
             # idx['event_index'] = h5f['LST/LST_event_index'][:]
             # idx['file_index'] = [positions[l]]*len(idx['event_index'])
@@ -238,37 +249,42 @@ class LSTGenerator(keras.utils.Sequence):
                             alt, az, d_alt, d_az)).reshape(-1, 11)
 
             idx = np.append(idx, cp, axis=0)
+
         return_dict[i] = idx
 
     def generate_indexes(self):
-
-        cpu_n = multiprocessing.cpu_count()
-        pos = self.chunkit(np.arange(len(self.h5files)), cpu_n)
-        h5f = self.chunkit(self.h5files, cpu_n)
-
-        manager = multiprocessing.Manager()
-        return_dict = manager.dict()
-
-        processes = []
-
-        if cpu_n >= len(self.h5files):
-            # print('ncpus >= num_files')
-            for i, f in enumerate(self.h5files):
-                p = multiprocessing.Process(target=self.worker, args=([f], [i], i, return_dict))
-                p.start()
-                processes.append(p)
+        if self.load is not None:
+            print("Indexes provided by user. Loading...")
+            self.indexes = np.array(pd.read_pickle(self.load))
         else:
-            # print('ncpus < num_files')
-            for i in range(cpu_n):
-                p = multiprocessing.Process(target=self.worker, args=(h5f[i], pos[i], i, return_dict))
-                p.start()
-                processes.append(p)
+            print("Indexing...")
+            cpu_n = multiprocessing.cpu_count()
+            pos = self.chunkit(np.arange(len(self.h5files)), cpu_n)
+            h5f = self.chunkit(self.h5files, cpu_n)
 
-        for p in processes:
-            p.join()
+            manager = multiprocessing.Manager()
+            return_dict = manager.dict()
 
-        for key, value in return_dict.items():
-            self.indexes = np.append(self.indexes, value, axis=0)
+            processes = []
+
+            if cpu_n >= len(self.h5files):
+                print('ncpus >= num_files')
+                for i, f in enumerate(self.h5files):
+                    p = multiprocessing.Process(target=self.worker, args=([f], [i], i, return_dict))
+                    p.start()
+                    processes.append(p)
+            else:
+                print('ncpus < num_files')
+                for i in range(cpu_n):
+                    p = multiprocessing.Process(target=self.worker, args=(h5f[i], pos[i], i, return_dict))
+                    p.start()
+                    processes.append(p)
+
+            for p in processes:
+                p.join()
+
+            for key, value in return_dict.items():
+                self.indexes = np.append(self.indexes, value, axis=0)
 
     def on_epoch_end(self):
         'Updates indexes after each epoch'
@@ -277,8 +293,9 @@ class LSTGenerator(keras.utils.Sequence):
             # self.indexes = self.indexes.sample(frac=1).reset_index(drop=True)  # shuffle all the pairs (if, ii) - (index file, index image in the file)
 
     def to_nominal_frame(self, alt, az):
-
         alt_LST = 70  # deg
+        if self.plike:
+            alt_LST = 69.6 # deg
         az_LST = 180  # deg
 
         point = AltAz(

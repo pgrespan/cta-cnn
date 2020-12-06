@@ -10,6 +10,7 @@
             <mapping deploy="/etrained" local="$USER_HOME$/CTA/etrained" web="/home/pgrespan/" />
             <mapping deploy="/dtrained" local="$USER_HOME$/CTA/dtrained" web="/home/pgrespan/" />
             <mapping deploy="/fig" local="$USER_HOME$/CTA/fig" web="/home/pgrespan/" />
+            <mapping deploy="/results" local="$USER_HOME$/CTA/results" web="/home/pgrespan/" />
           </mappings>
         </serverdata>
       </paths>

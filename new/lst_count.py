@@ -32,7 +32,7 @@ def chunkit(seq, num):
     return out
 
 
-def worker(h5files, i, return_dict, interp, threshold):
+def worker(h5files, i, return_dict, interp, thresholdcommon):
 
     lengths = {'tot':0, 'lkg_cut':0, 'cut':0}
 

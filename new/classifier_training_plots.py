@@ -16,7 +16,7 @@ def train_plots(filen, tran):
         val_losses = x['val_losses']
         accuracy = x['accuracy']
         val_accuracy = x['val_accuracy']
-        lrs = x['lrs'][:13]
+        lrs = x['lrs']
 
     # get number of epochs
     epochs = range(1, len(losses) + 1)
@@ -39,42 +39,8 @@ def train_plots(filen, tran):
 
     # fig.suptitle('Training history')
 
-    fig.savefig(folder + '/classifier_training.eps', format='eps', transparent=tran)
 
-    # validation loss & accuracy
-    fig2, axs2 = plt.subplots(nrows=1, ncols=2, figsize=(10, 4))
-
-    ax = axs2[0]
-    ax.plot(epochs, val_losses)
-    ax.set_xlabel('Epoch')
-    ax.set_ylabel('Loss [binary crossentropy]')
-    ax.set_title('Validation loss')
-    ax.grid(True)
-
-    ax = axs2[1]
-    ax.plot(epochs, val_accuracy, label='Accuracy')
-    ax.set_xlabel('Epoch')
-    ax.set_ylabel('Accuracy')
-    ax.set_title('Validation accuracy')
-    ax.grid(True)
-
-    # fig2.suptitle('Validation history')
-
-    fig2.savefig(folder + '/classifier_validation.eps', format='eps', transparent=tran)
-
-    # training + validation lxoss & accuracy
-    fig3, axs3 = plt.subplots(nrows=1, ncols=2, figsize=(10, 4))
-
-    ax = axs3[0]
-    ax.plot(epochs, losses, label='Loss', marker='.')
-    ax.plot(epochs, val_losses, label='Validation Loss', marker='.')
-    ax.set_xlabel('Epoch')
-    ax.set_ylabel('Loss [binary_crossentropy]')
-    ax.set_title('Training + Validation Loss')
-    ax.grid(True, linestyle='--')
-    ax.legend(loc='upper right', fancybox=True, framealpha=0.)
-
-    ax = axs3[1]
+    ax = axs[1]
     ax.plot(epochs, accuracy, label='Accuracy', marker='.')
     ax.plot(epochs, val_accuracy, label='Validation accuracy', marker='.')
     ax.set_xlabel('Epoch')
@@ -85,20 +51,20 @@ def train_plots(filen, tran):
 
     fig3.suptitle('Training history')
 
-    fig3.savefig(folder + '/classifier_train_val.eps', format='eps', transparent=tran)
+    fig3.savefig(folder + '/classifier_train_val.pdf', format='pdf', transparent=tran, bbox_inches="tight")
 
     # lr
     fig3, axs3 = plt.subplots(nrows=1, ncols=1, figsize=(6.5, 5))
 
-    axs3.plot(epochs, lrs, label='Learning rate')
+    axs3.plot(epochs, lrs, label='Learning rate', marker='.', linewidth=0.5)
     axs3.set_xlabel('Epoch')
     axs3.set_ylabel('Learning rate')
     axs3.set_title('Learning rate')
-    axs3.grid(True)
+    axs3.grid(True, linestyle='--')
 
     # fig3.suptitle('Training history')
 
-    fig3.savefig(folder + '/lr.eps', format='eps', transparent=tran)
+    fig3.savefig(folder + '/lr.pdf', format='pdf', transparent=tran)
 
     # plt.show()
 

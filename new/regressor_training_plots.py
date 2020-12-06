@@ -12,6 +12,7 @@ def train_plots(filen, tran):
         x = pickle.load(f)
         losses = x['losses']
         val_losses = x['val_losses']
+        lrs = x['lrs']
 
     fig = plt.figure(figsize=(6, 6))
 
@@ -49,13 +50,26 @@ def train_plots(filen, tran):
     plt.plot(epochs, val_losses, label='val_loss', marker='.')
     plt.xlabel('Epoch')
     plt.ylabel('Loss [mean absolute error]')
-    plt.title('Validation loss')
+    plt.title('Training + Validation loss')
     plt.legend(loc='upper right', fancybox=True, framealpha=0.)
     plt.grid(True, which="major", linestyle='--')
 
     plt.suptitle('History')
 
     plt.savefig(folder + '/regressor_train_valid.png', transparent=tran)
+
+    # lr
+    fig3, axs3 = plt.subplots(nrows=1, ncols=1, figsize=(6.5, 5))
+
+    axs3.plot(epochs, lrs, label='Learning rate', marker='.', linewidth=0.5)
+    axs3.set_xlabel('Epoch')
+    axs3.set_ylabel('Learning rate')
+    axs3.set_title('Learning rate')
+    axs3.grid(True, linestyle='--')
+
+    # fig3.suptitle('Training history')
+
+    fig3.savefig(folder + '/lr.eps', format='eps', transparent=tran)
 
 
 if __name__ == "__main__":

@@ -8,16 +8,16 @@ def bbai(dirs, outfile='./data_info', model=''):
         model = '/home/pgrespan/trained/VGG16_2020-04-21_11-01/VGG16_13_0.88753_0.86502.h5'
     gen = LSTGenerator(
         h5files=files,
-        feature='gammaness',
+        feature="energy",
+
+        
         shuffle=False,
-        intensity=0.0,
-        leakage2_intensity=0.2,
-        arrival_time=True,
-        gammaness=0.0,
+        intensity=None,
+        leakage2_intensity=None,
         class_model=model
     )
     try:
-        gen.indexes.to_pickle(outfile + '.pkl')
+        gen.get_all_info().to_pickle(outfile + '.pkl')
     except:
         print('No riesso catare a cartea, probabilmente no esiste, molton!')
 
