@@ -16,7 +16,7 @@ DENSENET_169_WEIGHTS_PATH_NO_TOP = r'https://github.com/titu1994/DenseNet/releas
 
 def select_classifier(model_name, hype_print, channels, img_rows, img_cols):
     if model_name == 'LST_VGG16':
-        dropout_rate = 0.5
+        dropout_rate = 0.3
         wd = 1e-5
         net = LST_VGG16(
             channels=channels,
