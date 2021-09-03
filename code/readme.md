@@ -3,11 +3,8 @@
 ### Gear
 
 - Tensorflow 1.12.0
-- Keras 2.2.4 (install from repo and comment one line of code)
-- Ctapipe 0.7.0
-
-### Software installation
-- Install Tensorflow 1.12 and Keras 2.25 via Conda
+- Keras 2.2.5
+- Ctapipe 0.8.0
 
 ### 1 Data interpolation
 First of all the data needs to be interpolated.
